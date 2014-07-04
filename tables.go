@@ -2,15 +2,19 @@ package parse
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"go/ast"
 	"go/format"
 	"go/parser"
 	"go/token"
 	"io"
+	"log"
 	"os"
 	"regexp"
 	"strings"
+
+	"code.google.com/p/go.tools/imports"
 )
 
 var (
@@ -241,18 +245,25 @@ SaveAll(vals []%[1]s) error
 )
 
 func (pkg *Package) WriteSchema() {
+	b := &bytes.Buffer{}
+	io.WriteString(b, GenerateWarning)
+	fmt.Fprintf(b, "\n\npackage %s\n", pkg.ActiveFiles[0].AST.Name.Name)
+
+	pkg.WriteTableScopes(b)
+	pkg.WriteConnDefinition(b)
+
 	f, err := os.Create(pkg.ActiveFiles[0].AST.Name.Name + "_gen.go")
 	if err != nil {
 		fmt.Println("Could not write schema file")
 	}
 	defer f.Close()
 
-	io.WriteString(f, GenerateWarning)
-	fmt.Fprintf(f, "\n\npackage %s\n", pkg.ActiveFiles[0].AST.Name.Name)
+	ib, err := imports.Process(pkg.ActiveFiles[0].AST.Name.Name+"_gen.go", b.Bytes(), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	pkg.WriteTableScopes(f)
-	pkg.WriteConnDefinition(f)
-
+	f.Write(ib)
 }
 
 // WriteTableScopes writes out the scope definition for each
@@ -260,7 +271,6 @@ func (pkg *Package) WriteSchema() {
 // are from the base scopes of doc.
 func (pkg *Package) WriteTableScopes(f io.Writer) {
 	for _, table := range pkg.Tables {
-		fmt.Fprintln(f, "*/")
 		fmt.Fprintf(f, "type %sScope interface {\n", table.Name())
 		for _, field := range table.Spec().Type.(*ast.StructType).Fields.List {
 			for _, name := range field.Names {
@@ -275,4 +285,9 @@ func (pkg *Package) WriteTableScopes(f io.Writer) {
 // WriteConnDefinition will build a conn struct that the user can use
 // to access the scopes.
 func (pkg *Package) WriteConnDefinition(f io.Writer) {
+	io.WriteString(f, "type Conn struct {\n")
+	for _, table := range pkg.Tables {
+		fmt.Fprintf(f, "\t%[1]s  %[1]sScope\n", table.Name())
+	}
+	io.WriteString(f, "}\n\n")
 }
