@@ -260,20 +260,6 @@ func (pkg *Package) WriteSchema() {
 // are from the base scopes of doc.
 func (pkg *Package) WriteTableScopes(f io.Writer) {
 	for _, table := range pkg.Tables {
-		fmt.Fprintln(f, "/*\nTable: ", table.Name())
-		for _, field := range table.Spec().Type.(*ast.StructType).Fields.List {
-			for _, name := range field.Names {
-				tag := ""
-				if field.Tag != nil {
-					tag = field.Tag.Value
-				}
-				fmt.Fprintf(f, "  Column: %s (%s) %s\n",
-					name.Name,
-					fmt.Sprint(field.Type),
-					tag,
-				)
-			}
-		}
 		fmt.Fprintln(f, "*/")
 		fmt.Fprintf(f, "type %sScope interface {\n", table.Name())
 		for _, field := range table.Spec().Type.(*ast.StructType).Fields.List {
