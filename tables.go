@@ -330,25 +330,27 @@ func (pkg *Package) WriteConnDefinition(f io.Writer) {
 
 	io.WriteString(f, "func Open(dataSourceName string) (*Conn, error) {\nc := &Conn{}\n")
 	for _, table := range pkg.Tables {
-		fmt.Fprintf(f, "c.%[1]s = base%[1]sScope(c)\n", table.Name())
+		fmt.Fprintf(f, "c.%[1]s = new%[1]sScope(c)\n", table.Name())
 	}
 	io.WriteString(f, "return c, nil\n}\n")
 	io.WriteString(f, `func (c *Conn) Close() error {
 		return c.DB.Close()
 	}
+
+	func (c *Conn) SQLTable(table interface{}) string {
+		return strings.ToLower(reflect.ValueOf(table).Type().Name())
+	}
+
+	func (c *Conn) SQLColumn(column string) string {
+		return strings.ToLower(column)
+	}
 `)
 }
 
 const (
-	baseScopeDef = `func base%[1]sScope(c *Conn) %[1]sScope {
-		s := scope%[1]s{conn: c,base: newDocScope(c)}
-
-	return s
-}
-
-// basic conditions
+	baseScopeDef = `// basic conditions
 func (scope scope%[1]s) Eq(val interface{}) %[1]sScope {
-	c := condition{column: scope.base.currentColumn}
+	c := condition{column: scope.currentColumn}
 	if val == nil {
 		c.cond = "IS NULL"
 	} else {
@@ -356,12 +358,12 @@ func (scope scope%[1]s) Eq(val interface{}) %[1]sScope {
 		c.vals = []interface{}{val}
 	}
 
-	scope.base.conditions = append(scope.base.conditions, c)
+	scope.conditions = append(scope.conditions, c)
 	return scope
 }
 
 func (scope scope%[1]s) Neq(val interface{}) %[1]sScope {
-	c := condition{column: scope.base.currentColumn}
+	c := condition{column: scope.currentColumn}
 	if val == nil {
 		c.cond = "IS NOT NULL"
 	} else {
@@ -369,88 +371,88 @@ func (scope scope%[1]s) Neq(val interface{}) %[1]sScope {
 		c.vals = []interface{}{val}
 	}
 
-	scope.base.conditions = append(scope.base.conditions, c)
+	scope.conditions = append(scope.conditions, c)
 	return scope
 }
 
 func (scope scope%[1]s) Gt(val interface{}) %[1]sScope {
 	c := condition{
-		column: scope.base.currentColumn,
+		column: scope.currentColumn,
 		cond: "> ?",
 		vals: []interface{}{val},
 	}
 
-	scope.base.conditions = append(scope.base.conditions, c)
+	scope.conditions = append(scope.conditions, c)
 	return scope
 }
 
 func (scope scope%[1]s) Gte(val interface{}) %[1]sScope {
 	c := condition{
-		column: scope.base.currentColumn,
+		column: scope.currentColumn,
 		cond: ">= ?",
 		vals: []interface{}{val},
 	}
 
-	scope.base.conditions = append(scope.base.conditions, c)
+	scope.conditions = append(scope.conditions, c)
 	return scope
 }
 
 func (scope scope%[1]s) Lt(val interface{}) %[1]sScope {
 	c := condition{
-		column: scope.base.currentColumn,
+		column: scope.currentColumn,
 		cond: "< ?",
 		vals: []interface{}{val},
 	}
 
-	scope.base.conditions = append(scope.base.conditions, c)
+	scope.conditions = append(scope.conditions, c)
 	return scope
 }
 
 func (scope scope%[1]s) Lte(val interface{}) %[1]sScope {
 
 	c := condition{
-		column: scope.base.currentColumn,
+		column: scope.currentColumn,
 		cond: "<= ?",
 		vals: []interface{}{val},
 	}
 
-	scope.base.conditions = append(scope.base.conditions, c)
+	scope.conditions = append(scope.conditions, c)
 	return scope
 }
 
 // multi value conditions
 func (scope scope%[1]s) Between(lower, upper interface{}) %[1]sScope {
 	c := condition{
-		column: scope.base.currentColumn,
+		column: scope.currentColumn,
 		cond: "BETWEEN ? AND ?",
 		vals: []interface{}{lower, upper},
 	}
 
-	scope.base.conditions = append(scope.base.conditions, c)
+	scope.conditions = append(scope.conditions, c)
 	return scope
 }
 
 func (scope scope%[1]s) In(vals ...interface{}) %[1]sScope {
 	vc := make([]string, len(vals))
 	c := condition{
-		column: scope.base.currentColumn,
+		column: scope.currentColumn,
 		cond: fmt.Sprintf("IN (%s?)", strings.Join(vc, "?, ")),
 		vals: vals,
 	}
 
-	scope.base.conditions = append(scope.base.conditions, c)
+	scope.conditions = append(scope.conditions, c)
 	return scope
 }
 
 func (scope scope%[1]s) NotIn(vals ...interface{}) %[1]sScope {
 	vc := make([]string, len(vals))
 	c := condition{
-		column: scope.base.currentColumn,
+		column: scope.currentColumn,
 		cond: fmt.Sprintf("NOT IN (%s?)", strings.Join(vc, "?, ")),
 		vals: vals,
 	}
 
-	scope.base.conditions = append(scope.base.conditions, c)
+	scope.conditions = append(scope.conditions, c)
 	return scope
 }
 
@@ -459,30 +461,30 @@ func (scope scope%[1]s) Where(sql string, vals ...interface{}) %[1]sScope {
 		cond: sql,
 		vals: vals,
 	}
-	scope.base.conditions = append(scope.base.conditions, c)
+	scope.conditions = append(scope.conditions, c)
 	return scope
 }
 
 // ordering conditions
 func (scope scope%[1]s) Order(ordering string) %[1]sScope {
-	scope.base.order= append(scope.base.order, ordering)
+	scope.order= append(scope.order, ordering)
 	return scope
 }
 
 func (scope scope%[1]s) Desc() %[1]sScope {
-	scope.base.order= append(scope.base.order, scope.base.currentColumn + " DESC")
+	scope.order= append(scope.order, scope.currentColumn + " DESC")
 	return scope
 }
 
 func (scope scope%[1]s) Asc() %[1]sScope {
-	scope.base.order= append(scope.base.order, scope.base.currentColumn + " ASC")
+	scope.order= append(scope.order, scope.currentColumn + " ASC")
 	return scope
 }
 
 // aggregation filtering
 func (scope scope%[1]s) Having(sql string, vals ...interface{}) %[1]sScope {
-	scope.base.having = append(scope.base.having, sql)
-	scope.base.havevals = append(scope.base.havevals, vals...)
+	scope.having = append(scope.having, sql)
+	scope.havevals = append(scope.havevals, vals...)
 	return scope
 }
 
@@ -494,12 +496,12 @@ func (scope scope%[1]s) Having(sql string, vals ...interface{}) %[1]sScope {
 
 // Result count filtering
 func (scope scope%[1]s) Limit(limit int64) %[1]sScope {
-	scope.base.limit = &limit
+	scope.limit = &limit
 	return scope
 }
 
 func (scope scope%[1]s) Offset(offset int64) %[1]sScope {
-	scope.base.offset = &offset
+	scope.offset = &offset
 	return scope
 }
 
@@ -509,12 +511,12 @@ func (scope scope%[1]s) Clear() %[1]sScope {
 }
 
 func (scope scope%[1]s) ClearAll() %[1]sScope {
-	scope.base.conditions = []condition{}
+	scope.conditions = []condition{}
 	return scope
 }
 
 func (scope scope%[1]s) Base() %[1]sScope {
-	return base%[1]sScope(scope.conn)
+	return new%[1]sScope(scope.conn)
 }
 
 // struct saving and loading
@@ -570,28 +572,107 @@ func (scope scope%[1]s) Delete() error {
 
 // special
 func (scope scope%[1]s) ToSQL() (string, []interface{}) {
-	return scope.base.query()
+	return scope.query()
 }
 
 func (scope scope%[1]s) As(alias string) %[1]sScope {
-	scope.base.currentAlias = alias
+	scope.currentAlias = alias
 	return scope
 }
 `
 	columnScopeDef = `
 func (scope scope%[1]s) %[2]s() %[1]sScope {
-	scope.base.currentColumn = "%[1]s.%[2]s"
-	scope.base.currentAlias = ""
+	scope.currentColumn = 
+	scope.conn.SQLTable(%[1]s{})+
+	"."+
+	scope.conn.SQLColumn("%[2]s")
+	scope.currentAlias = ""
 	return scope
 }
 `
 )
 
+const tableScope = `type scope%[1]s struct {
+	conn *Conn
+	table string
+	columns []string
+	order []string
+	joins []string
+	conditions []condition
+	having []string
+	havevals []interface{}
+	currentColumn, currentAlias string
+	limit, offset *int64
+}
+
+func new%[1]sScope(c *Conn) *scope%[1]s {
+	return &scope%[1]s{
+		conn: c,
+		table: c.SQLTable(%[1]s{}),
+	}
+}
+
+func (s *scope%[1]s) query() (string, []interface{}) {
+	// SELECT (columns) FROM (table) (joins) WHERE (conditions) 
+	// GROUP BY (grouping) HAVING (havings)
+	// ORDER BY (orderings) LIMIT (limit) OFFSET (offset)
+	sql := []string{}
+	vals := []interface{}{}
+	if len(s.columns) == 0 {
+		sql = append(sql, "SELECT", s.table+".*")
+	} else {
+		sql = append(sql, "SELECT", strings.Join(s.columns, ", "))
+	}
+	// if s.source == nil { // subquery
+	// 
+	// } else {
+	sql = append(sql, "FROM", s.table)
+	// }
+	sql = append(sql, s.joins...)
+
+	if len(s.conditions) > 0 {
+		sql = append(sql, "WHERE")
+		for _, condition := range s.conditions {
+			sql = append(sql, condition.ToSQL())
+			vals = append(vals, condition.vals...)
+		}
+	}
+
+	// if len(s.groupings) > 0 {
+	//   sql = append(sql , "GROUP BY")
+	//   for _, grouping := range s.groupings {
+	//     sql = append(sql, grouping.ToSQL()
+	//   }
+	// }
+
+	if len(s.having) > 0 {
+		sql = append(sql, "HAVING")
+		sql = append(sql, s.having...)
+		vals = append(vals, s.havevals...)
+	}
+
+	if len(s.order) > 0 {
+		sql = append(sql, "ORDER BY")
+		sql = append(sql, s.order...)
+	}
+
+	if s.limit != nil {
+		sql = append(sql, "LIMIT", fmt.Sprint("%v", *s.limit))
+	}
+
+	if s.offset != nil {
+		sql = append(sql, "OFFSET", fmt.Sprint("%v", *s.offset))
+	}
+
+	return strings.Join(sql, " "), vals
+}
+`
+
 // WriteTableScopeStructs writes out the structs and functions for each
 // table that actually implement the scope interfaces.
 func (pkg *Package) WriteTableScopeStructs(f io.Writer) {
 	for _, table := range pkg.Tables {
-		fmt.Fprintf(f, "type scope%s struct {\nbase *docScope\nconn *Conn\n}\n", table.Name())
+		fmt.Fprintf(f, tableScope, table.Name())
 		fmt.Fprintf(f, baseScopeDef, table.Name())
 		for _, field := range table.Spec().Type.(*ast.StructType).Fields.List {
 			for _, name := range field.Names {
@@ -602,78 +683,7 @@ func (pkg *Package) WriteTableScopeStructs(f io.Writer) {
 }
 
 func (pkg *Package) WriteDocThings(f io.Writer) {
-	io.WriteString(f, `type docScope struct {
-		conn *Conn
-		table string
-		columns []string
-		order []string
-		joins []string
-		conditions []condition
-		having []string
-		havevals []interface{}
-		currentColumn, currentAlias string
-		limit, offset *int64
-	}
-	func (ds *docScope) query() (string, []interface{}) {
-		// SELECT (columns) FROM (table) (joins) WHERE (conditions) 
-		// GROUP BY (grouping) HAVING (havings)
-		// ORDER BY (orderings) LIMIT (limit) OFFSET (offset)
-		sql := []string{}
-		vals := []interface{}{}
-		if len(ds.columns) == 0 {
-			sql = append(sql, fmt.Sprintf("SELECT %s.*", ds.table))
-		} else {
-			sql = append(sql, fmt.Sprintf("SELECT %s", strings.Join(ds.columns, ", ")))
-		}
-		// if ds.source == nil { // subquery
-		// 
-		// } else {
-		sql = append(sql, fmt.Sprintf("FROM %s", ds.table))
-		// }
-		sql = append(sql, ds.joins...)
-
-		if len(ds.conditions) > 0 {
-			sql = append(sql, "WHERE")
-			for _, condition := range ds.conditions {
-				sql = append(sql, condition.ToSQL())
-				vals = append(vals, condition.vals...)
-			}
-		}
-
-		// if len(ds.groupings) > 0 {
-		//   sql = append(sql , "GROUP BY")
-		//   for _, grouping := range ds.groupings {
-		//     sql = append(sql, grouping.ToSQL()
-		//   }
-		// }
-
-		if len(ds.having) > 0 {
-			sql = append(sql, "HAVING")
-			sql = append(sql, ds.having...)
-			vals = append(vals, ds.havevals...)
-		}
-
-		if len(ds.order) > 0 {
-			sql = append(sql, "ORDER BY")
-			sql = append(sql, ds.order...)
-		}
-
-		if ds.limit != nil {
-			sql = append(sql, fmt.Sprintf("LIMIT %v", *ds.limit))
-		}
-
-		if ds.offset != nil {
-			sql = append(sql, fmt.Sprintf("OFFSET %v", *ds.offset))
-		}
-
-		return strings.Join(sql, " "), vals
-	}
-
-	func newDocScope(c *Conn) *docScope {
-		return &docScope{conn: c}
-	}
-
-	type condition struct {
+	io.WriteString(f, `type condition struct {
 		column string
 		cond string
 		vals []interface{}
