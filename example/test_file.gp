@@ -1,4 +1,4 @@
-package main
+package example
 
 type User table {
   FirstName, LastName string `null="zero"`
