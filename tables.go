@@ -633,10 +633,12 @@ func (s *scope%[1]s) query() (string, []interface{}) {
 
 	if len(s.conditions) > 0 {
 		sql = append(sql, "WHERE")
+		conds := []string{}
 		for _, condition := range s.conditions {
-			sql = append(sql, condition.ToSQL())
+			conds = append(conds, condition.ToSQL())
 			vals = append(vals, condition.vals...)
 		}
+		sql = append(sql, strings.Join(conds, " AND "))
 	}
 
 	// if len(s.groupings) > 0 {

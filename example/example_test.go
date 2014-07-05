@@ -31,4 +31,19 @@ func TestUserSimple(t *testing.T) {
 	if sql != "SELECT user.* FROM user WHERE user.id IN (?, ?, ?, ?)" {
 		t.Fatal("SQL is incorrect for IN:", sql)
 	}
+	sql, vals = c.User.Between(1, 4).ToSQL()
+	if len(vals) != 2 {
+		t.Error("Not correct values for []{1,4}")
+	}
+	if sql != "SELECT user.* FROM user WHERE user.id BETWEEN ? AND ?" {
+		t.Fatal("SQL is incorrect", sql)
+	}
+
+	sql, vals = c.User.Lte(4).Gte(1).ToSQL()
+	if len(vals) != 2 {
+		t.Error("Not correct values for []{4,1}")
+	}
+	if sql != "SELECT user.* FROM user WHERE user.id <= ? AND user.id >= ?" {
+		t.Fatal("SQL is incorrect", sql)
+	}
 }
