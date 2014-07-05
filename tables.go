@@ -436,7 +436,7 @@ func (scope scope%[1]s) In(vals ...interface{}) %[1]sScope {
 	vc := make([]string, len(vals))
 	c := condition{
 		column: scope.currentColumn,
-		cond: fmt.Sprintf("IN (%s?)", strings.Join(vc, "?, ")),
+		cond: "IN ("+strings.Join(vc, "?, ")+"?)",
 		vals: vals,
 	}
 
@@ -609,6 +609,7 @@ func new%[1]sScope(c *Conn) *scope%[1]s {
 	return &scope%[1]s{
 		conn: c,
 		table: c.SQLTable(%[1]s{}),
+		currentColumn: c.SQLTable(%[1]s{})+"."+c.SQLColumn("%[2]s"),
 	}
 }
 
@@ -672,7 +673,11 @@ func (s *scope%[1]s) query() (string, []interface{}) {
 // table that actually implement the scope interfaces.
 func (pkg *Package) WriteTableScopeStructs(f io.Writer) {
 	for _, table := range pkg.Tables {
-		fmt.Fprintf(f, tableScope, table.Name())
+		fmt.Fprintf(f,
+			tableScope,
+			table.Name(),
+			table.Spec().Type.(*ast.StructType).Fields.List[0].Names[0].Name,
+		)
 		fmt.Fprintf(f, baseScopeDef, table.Name())
 		for _, field := range table.Spec().Type.(*ast.StructType).Fields.List {
 			for _, name := range field.Names {

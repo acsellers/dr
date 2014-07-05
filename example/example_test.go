@@ -2,7 +2,7 @@ package example
 
 import "testing"
 
-func TestUser(t *testing.T) {
+func TestUserSimple(t *testing.T) {
 	c, _ := Open("blah")
 	sql, vals := c.User.ToSQL()
 	if len(vals) > 0 {
@@ -22,5 +22,13 @@ func TestUser(t *testing.T) {
 	sql, vals = c.User.ToSQL()
 	if len(vals) > 0 || sql != "SELECT user.* FROM user" {
 		t.Fatal("conn.User has been changed")
+	}
+
+	sql, vals = c.User.In(1, 2, 3, 4).ToSQL()
+	if len(vals) != 4 {
+		t.Error("Not correct values for []{1,2,3,4}")
+	}
+	if sql != "SELECT user.* FROM user WHERE user.id IN (?, ?, ?, ?)" {
+		t.Fatal("SQL is incorrect for IN:", sql)
 	}
 }

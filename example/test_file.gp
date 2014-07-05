@@ -1,6 +1,7 @@
 package example
 
 type User table {
+  ID int
   FirstName, LastName string `null="zero"`
   Timestamps
 }
