@@ -16,7 +16,7 @@ func TestUserSimple(t *testing.T) {
 		t.Error(`Not correct values for []{"Andrew"}:`, vals)
 	}
 	if sql != "SELECT user.* FROM user WHERE user.firstname = ?" {
-		t.Error("Incorrect SQL", sql)
+		t.Fatal("Incorrect SQL", sql)
 	}
 
 	sql, vals = c.User.ToSQL()
@@ -44,6 +44,30 @@ func TestUserSimple(t *testing.T) {
 		t.Error("Not correct values for []{4,1}")
 	}
 	if sql != "SELECT user.* FROM user WHERE user.id <= ? AND user.id >= ?" {
+		t.Fatal("SQL is incorrect", sql)
+	}
+
+	sql, vals = c.User.Lt(5).Gt(0).ToSQL()
+	if len(vals) != 2 {
+		t.Error("Not correct values for []{5,0}")
+	}
+	if sql != "SELECT user.* FROM user WHERE user.id < ? AND user.id > ?" {
+		t.Fatal("SQL is incorrect", sql)
+	}
+
+	sql, vals = c.User.CreatedAt().And(c.User.Eq(4)).ToSQL()
+	if len(vals) != 1 {
+		t.Error("Incorrect values for []{4}", vals)
+	}
+	if sql != "SELECT user.* FROM user WHERE user.id = ?" {
+		t.Fatal("SQL is incorrect", sql)
+	}
+
+	sql, vals = c.User.Or(c.User.Eq(1), c.User.Eq(2), c.User.Or(c.User.Eq(3), c.User.Eq(4))).ToSQL()
+	if len(vals) != 4 {
+		t.Error("Incorrect values for []{1,2,3,4}:", vals)
+	}
+	if sql != "SELECT user.* FROM user WHERE (user.id = ? OR user.id = ? OR (user.id = ? OR user.id = ?))" {
 		t.Fatal("SQL is incorrect", sql)
 	}
 }

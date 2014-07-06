@@ -275,6 +275,8 @@ Delete() error
 // Special operations
 ToSQL() (string, []interface{})
 As(alias string) %[1]sScope
+And(...%[1]sScope) %[1]sScope
+Or(...%[1]sScope) %[1]sScope
 `
 )
 
@@ -521,7 +523,7 @@ func (scope scope%[1]s) Base() %[1]sScope {
 
 // struct saving and loading
 func (scope scope%[1]s) Find(id interface{}) %[1]s {
-	return %[1]s{}
+	return scope.And(scope.Base().Eq(id)).Retrieve()
 }
 
 func (scope scope%[1]s) Retrieve() %[1]s {
@@ -577,6 +579,38 @@ func (scope scope%[1]s) ToSQL() (string, []interface{}) {
 
 func (scope scope%[1]s) As(alias string) %[1]sScope {
 	scope.currentAlias = alias
+	return scope
+}
+
+func (scope scope%[1]s) And(scopes ...%[1]sScope) %[1]sScope {
+	for _, is := range scopes {
+		scope.conditions = append(scope.conditions, is.(scope%[1]s).conditions...)
+	}
+	return scope
+}
+
+func (scope scope%[1]s) Or(scopes ...%[1]sScope) %[1]sScope {
+	c := condition{
+	}
+	ors := []string{}
+	for _, oscope := range scopes {
+		cond := []string{}
+		ascope := oscope.(scope%[1]s)
+		if len(ascope.conditions) == 1 {
+			c.vals = append(c.vals, ascope.conditions[0].vals...)
+			ors = append(ors, ascope.conditions[0].ToSQL())
+		} else {
+			for _, ocond := range ascope.conditions {
+				c.vals = append(c.vals, ocond.vals...)
+				cond = append(cond, ocond.ToSQL())
+			}
+			ors = append(ors, "(" + strings.Join(cond, " AND ")+ ")")
+		}
+	}
+	c.cond = "(" + strings.Join(ors, " OR ") + ")"
+
+	scope.conditions = append(scope.conditions, c)
+
 	return scope
 }
 `
@@ -696,6 +730,9 @@ func (pkg *Package) WriteDocThings(f io.Writer) {
 		vals []interface{}
 	}
 	func (c condition) ToSQL() string {
+		if c.column == "" {
+			return c.cond
+		}
 		return c.column+" "+c.cond
 	}
 `)
