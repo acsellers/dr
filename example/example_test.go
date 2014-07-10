@@ -1,9 +1,17 @@
 package example
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+
+	_ "github.com/go-sql-driver/mysql"
+)
 
 func TestUserSimple(t *testing.T) {
-	c, _ := Open("blah")
+	c, err := Open("mysql", "root:toor@/doc_test")
+	if err != nil {
+		t.Fatal("Open:", err)
+	}
 	sql, vals := c.User.ToSQL()
 	if len(vals) > 0 {
 		t.Fatal("Too many values in User.ToSQL")
@@ -69,5 +77,34 @@ func TestUserSimple(t *testing.T) {
 	}
 	if sql != "SELECT user.* FROM user WHERE (user.id = ? OR user.id = ? OR (user.id = ? OR user.id = ?))" {
 		t.Fatal("SQL is incorrect", sql)
+	}
+}
+
+func TestUserRetrieve(t *testing.T) {
+	c, err := Open("mysql", "root:toor@/doc_test")
+	if err != nil {
+		t.Fatal("Open:", err)
+	}
+	users, err := c.User.RetrieveAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(users) != 3 {
+		t.Fatal("Different length of users, should be 3", fmt.Sprint(users))
+	}
+	u, err := c.User.LastName().Eq("Fellers").Retrieve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.FirstName != "Andrew" && u.LastName != "Fellers" {
+		t.Fatal("Wrong user, expected a.fellers, got:", u)
+	}
+
+	u, err = c.User.Find(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.FirstName != "Andrew" || u.LastName != "Sellers" {
+		t.Fatal("Wrong user, expected a.fellers, got:", u)
 	}
 }

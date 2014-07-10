@@ -229,6 +229,7 @@ Gt(val interface{}) %[1]sScope
 Gte(val interface{}) %[1]sScope
 Lt(val interface{}) %[1]sScope
 Lte(val interface{}) %[1]sScope
+Like(string) %[1]sScope
 
 // multi value conditions
 Between(lower, upper interface{}) %[1]sScope
@@ -255,9 +256,9 @@ ClearAll() %[1]sScope
 Base() %[1]sScope
 
 // Struct instance saving and loading
-Find(id interface{}) %[1]s
-Retrieve() %[1]s
-RetrieveAll() []%[1]s
+Find(id interface{}) (%[1]s, error)
+Retrieve() (%[1]s, error)
+RetrieveAll() ([]%[1]s, error)
 SaveAll(vals []%[1]s) error
 
 // Subset plucking
@@ -269,12 +270,14 @@ PluckStruct(result interface{}) error
 // Direct SQL operations
 Count() int64
 CountBy(sql string) int64
+CountOf() int64
 UpdateSQL(sql string, vals ...interface{}) error
 Delete() error
 
 // Special operations
 ToSQL() (string, []interface{})
 As(alias string) %[1]sScope
+Distinct() %[1]sScope
 And(...%[1]sScope) %[1]sScope
 Or(...%[1]sScope) %[1]sScope
 `
@@ -330,7 +333,15 @@ func (pkg *Package) WriteConnDefinition(f io.Writer) {
 	}
 	io.WriteString(f, "}\n\n")
 
-	io.WriteString(f, "func Open(dataSourceName string) (*Conn, error) {\nc := &Conn{}\n")
+	io.WriteString(f, `func Open(driverName, dataSourceName string) (*Conn, error) {
+		c := &Conn{}
+		var err error
+		c.DB, err = sql.Open(driverName, dataSourceName)
+		if err != nil {
+			return nil, err
+		}
+		`)
+
 	for _, table := range pkg.Tables {
 		fmt.Fprintf(f, "c.%[1]s = new%[1]sScope(c)\n", table.Name())
 	}
@@ -458,6 +469,17 @@ func (scope scope%[1]s) NotIn(vals ...interface{}) %[1]sScope {
 	return scope
 }
 
+func (scope scope%[1]s) Like(str string) %[1]sScope {
+	c := condition{
+		column: scope.currentColumn,
+		cond: "LIKE ?",
+		vals: []interface{}{str},
+	}
+
+	scope.conditions = append(scope.conditions, c)
+	return scope
+}
+
 func (scope scope%[1]s) Where(sql string, vals ...interface{}) %[1]sScope {
 	c := condition{
 		cond: sql,
@@ -509,6 +531,13 @@ func (scope scope%[1]s) Offset(offset int64) %[1]sScope {
 
 // misc scope operations
 func (scope scope%[1]s) Clear() %[1]sScope {
+	goods := []condition{}
+	for _, cond := range scope.conditions {
+		if !strings.HasSuffix(cond.column, "."+scope.currentColumn) {
+			goods = append(goods, cond)
+		}
+	}
+	scope.conditions = goods
 	return scope
 }
 
@@ -522,16 +551,41 @@ func (scope scope%[1]s) Base() %[1]sScope {
 }
 
 // struct saving and loading
-func (scope scope%[1]s) Find(id interface{}) %[1]s {
+func (scope scope%[1]s) Find(id interface{}) (%[1]s, error) {
 	return scope.And(scope.Base().Eq(id)).Retrieve()
 }
 
-func (scope scope%[1]s) Retrieve() %[1]s {
-	return %[1]s{}
+func (scope scope%[1]s) Retrieve() (%[1]s, error) {
+	ss, vv := scope.ToSQL()
+	row := scope.conn.QueryRow(ss, vv...)
+	val := &%[1]s{}
+	m := mapperFor%[1]s()
+	m.Current = &val
+	err := row.Scan(m.Scanners...)
+	return *val, err
+
 }
 
-func (scope scope%[1]s) RetrieveAll() []%[1]s {
-	return []%[1]s{}
+func (scope scope%[1]s) RetrieveAll() ([]%[1]s, error) {
+	ss, vv := scope.ToSQL()
+	rows, err := scope.conn.Query(ss, vv...)
+	if err != nil {
+		return []%[1]s{}, err
+	}
+	vals := []%[1]s{}
+	defer rows.Close()
+	m := mapperFor%[1]s()
+	for rows.Next() {
+		temp := &%[1]s{}
+		m.Current = &temp
+		err = rows.Scan(m.Scanners...)
+		if err != nil {
+			return []%[1]s{}, err
+		}
+		vals = append(vals, *temp)
+	}
+
+	return vals, nil
 }
 
 func (scope scope%[1]s) SaveAll(vals []%[1]s) error {
@@ -564,6 +618,10 @@ func (scope scope%[1]s) CountBy(sql string) int64 {
 	return 0
 }
 
+func(scope scope%[1]s) CountOf() int64 {
+	return 0
+}
+
 func (scope scope%[1]s) UpdateSQL(sql string, vals ...interface{}) error {
 	return nil
 }
@@ -579,6 +637,11 @@ func (scope scope%[1]s) ToSQL() (string, []interface{}) {
 
 func (scope scope%[1]s) As(alias string) %[1]sScope {
 	scope.currentAlias = alias
+	return scope
+}
+
+func (scope scope%[1]s) Distinct() %[1]sScope {
+	scope.isDistinct = true
 	return scope
 }
 
@@ -621,12 +684,11 @@ func (scope scope%[1]s) %[2]s() %[1]sScope {
 	"."+
 	scope.conn.SQLColumn("%[2]s")
 	scope.currentAlias = ""
+	scope.isDistinct = false
 	return scope
 }
 `
-)
-
-const tableScope = `type scope%[1]s struct {
+	tableScope = `type scope%[1]s struct {
 	conn *Conn
 	table string
 	columns []string
@@ -636,6 +698,7 @@ const tableScope = `type scope%[1]s struct {
 	having []string
 	havevals []interface{}
 	currentColumn, currentAlias string
+	isDistinct bool
 	limit, offset *int64
 }
 
@@ -704,22 +767,107 @@ func (s *scope%[1]s) query() (string, []interface{}) {
 	return strings.Join(sql, " "), vals
 }
 `
+	mapperDef = `type mapper%[1]s struct {
+		Current **%[1]s
+		Scanners []interface{}
+	}
+
+	func mapperFor%[1]s() *mapper%[1]s {
+		m := &mapper%[1]s{}
+		m.Scanners = []interface{}{
+			%[2]s
+		}
+		return m
+	}
+`
+	stringMapper = `type mapper%[1]s%[2]s struct {
+		Mapper *mapper%[1]s
+}
+func (m mapper%[1]s%[2]s) Scan(v interface{}) error {
+	if v == nil {
+		// do nothing, use zero value
+	} else if s, ok := v.(string); ok {
+		(*m.Mapper.Current).%[2]s = s
+	} else if s, ok := v.([]byte); ok {
+		(*m.Mapper.Current).%[2]s = string(s)
+	}
+
+	return nil
+}
+
+`
+	intMapper = `type mapper%[1]s%[2]s struct {
+		Mapper *mapper%[1]s
+}
+func (m mapper%[1]s%[2]s) Scan(v interface{}) error {
+	if v == nil {
+		// do nothing, use zero value
+	} else if s, ok := v.(int); ok {
+		(*m.Mapper.Current).%[2]s = s
+	}
+
+	return nil
+}
+
+`
+	timeMapper = `type mapper%[1]s%[2]s struct {
+		Mapper *mapper%[1]s
+}
+func (m mapper%[1]s%[2]s) Scan(v interface{}) error {
+	if v == nil {
+		// do nothing, use zero value
+	} else if s, ok := v.(time.Time); ok {
+		(*m.Mapper.Current).%[2]s = s
+	}
+
+	return nil
+}
+
+`
+)
 
 // WriteTableScopeStructs writes out the structs and functions for each
 // table that actually implement the scope interfaces.
 func (pkg *Package) WriteTableScopeStructs(f io.Writer) {
 	for _, table := range pkg.Tables {
+		// write out the scope struct
 		fmt.Fprintf(f,
 			tableScope,
 			table.Name(),
 			table.Spec().Type.(*ast.StructType).Fields.List[0].Names[0].Name,
 		)
+		// write out the basic scopes, Eq, Lt, Retrieve, etc.
 		fmt.Fprintf(f, baseScopeDef, table.Name())
+
+		// write out the column scope function
 		for _, field := range table.Spec().Type.(*ast.StructType).Fields.List {
 			for _, name := range field.Names {
 				fmt.Fprintf(f, columnScopeDef, table.Name(), name.Name)
 			}
 		}
+
+		// write out the column mappers
+		mappers := []string{}
+		for _, field := range table.Spec().Type.(*ast.StructType).Fields.List {
+			for _, name := range field.Names {
+				switch fmt.Sprint(field.Type) {
+				case "string":
+					fmt.Fprintf(f, stringMapper, table.Name(), name.Name)
+					mappers = append(mappers, fmt.Sprintf("mapper%[1]s%[2]s{m},", table.Name(), name.Name))
+				case "int":
+					fmt.Fprintf(f, intMapper, table.Name(), name.Name)
+					mappers = append(mappers, fmt.Sprintf("mapper%[1]s%[2]s{m},", table.Name(), name.Name))
+				case "&{time Time}":
+					fmt.Fprintf(f, timeMapper, table.Name(), name.Name)
+					mappers = append(mappers, fmt.Sprintf("mapper%[1]s%[2]s{m},", table.Name(), name.Name))
+				default:
+					fmt.Println(fmt.Sprint(field.Type))
+				}
+			}
+		}
+		// write out the mapper definition
+
+		fmt.Fprintf(f, mapperDef, table.Name(), strings.Join(mappers, "\n"))
 	}
 }
 
