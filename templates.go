@@ -92,6 +92,7 @@ type {{ .Name }}Scope interface {
 
 type Conn struct {
 	*sql.DB
+	AppConfig
 	{{ range .Tables }}
 		{{ .Name }} {{ .Name }}Scope
 	{{ end }}
@@ -113,12 +114,27 @@ func (c *Conn) Close() error {
 	return c.DB.Close()
 }
 
-func (c *Conn) SQLTable(table string) string {
-	return strings.ToLower(table)
+type AppConfig struct {
+	defaultConfig
 }
 
-func (c *Conn) SQLColumn(column string) string {
-	return strings.ToLower(column)
+type defaultConfig struct {
+	SpecialTables map[string]string
+	SpecialColumns map[string]map[string]string
+}
+
+func (c *defaultConfig) SQLTable(table string) string {
+	if c == nil || c.SpecialTables[table] == "" {
+		return strings.ToLower(table)
+	}
+	return c.SpecialTables[table]
+}
+
+func (c *defaultConfig) SQLColumn(table, column string) string {
+	if c == nil || c.SpecialColumns[table] == nil || c.SpecialColumns[table][column] == "" {
+		return strings.ToLower(column)
+	}
+	return c.SpecialColumns[table][column]
 }
 
 {{ range $table := .Tables }}
@@ -140,7 +156,7 @@ func new{{ .Name }}Scope(c *Conn) *scope{{ .Name }} {
 	return &scope{{ .Name }}{
 		conn:          c,
 		table:         c.SQLTable("{{ .Name }}"),
-		currentColumn: c.SQLTable("{{ .Name }}") + "." + c.SQLColumn("ID"),
+		currentColumn: c.SQLTable("{{ .Name }}") + "." + c.SQLColumn("{{ .Name }}", "{{ .PrimaryKeyColumn.Name }}"),
 	}
 }
 
@@ -191,7 +207,7 @@ func (s *scope{{ .Name }}) query() (string, []interface{}) {
 	}
 
 	if s.limit != nil {
-		sql = append(sql, "LIMIT", fmt.Sprint("ID", *s.limit))
+		sql = append(sql, "LIMIT", fmt.Sprint("%v", *s.limit))
 	}
 
 	if s.offset != nil {
@@ -521,7 +537,7 @@ func (scope scope{{ $table.Name }}) {{ $column.Name }}() {{ $table.Name }}Scope 
 	scope.currentColumn =
 		scope.conn.SQLTable("{{ $table.Name }}") +
 			"." +
-			scope.conn.SQLColumn("{{ $column.Name }}")
+			scope.conn.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}")
 	scope.currentAlias = ""
 	scope.isDistinct = false
 	return scope

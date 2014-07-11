@@ -80,6 +80,10 @@ func (t *Table) Columns() []Column {
 	return t.cols
 }
 
+func (t *Table) PrimaryKeyColumn() Column {
+	return t.Columns()[0]
+}
+
 type Column struct {
 	Type, Name string
 }
