@@ -108,3 +108,25 @@ func TestUserRetrieve(t *testing.T) {
 		t.Fatal("Wrong user, expected a.fellers, got:", u)
 	}
 }
+
+func TestUserCount(t *testing.T) {
+	c, err := Open("mysql", "root:toor@/doc_test")
+	if err != nil {
+		t.Fatal("Open:", err)
+	}
+	count := c.User.Count()
+	if count != 3 {
+		t.Fatal("Wrong number of users")
+	}
+
+	count = c.User.FirstName().CountOf()
+	if count != 3 {
+		t.Fatal("Wrong number of users")
+	}
+
+	count = c.User.FirstName().Distinct().CountOf()
+	if count != 2 {
+		t.Fatal("Wrong number of users")
+	}
+
+}

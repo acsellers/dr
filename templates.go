@@ -467,15 +467,27 @@ func (scope scope{{ .Name }}) PluckStruct(result interface{}) error {
 
 // direct sql
 func (scope scope{{ .Name }}) Count() int64 {
-	return 0
+	return scope.{{ .PrimaryKeyColumn.Name }}().Distinct().CountOf()
 }
 
 func (scope scope{{ .Name }}) CountBy(sql string) int64 {
-	return 0
+	scope.columns = []string{sql}
+	ss, sv := scope.ToSQL()
+	var value int64
+	row := scope.conn.QueryRow(ss, sv...)
+	err := row.Scan(&value)
+	if err != nil {
+		panic(err)
+	}
+
+	return value
 }
 
 func (scope scope{{ .Name }}) CountOf() int64 {
-	return 0
+	if scope.isDistinct {
+		return scope.CountBy(fmt.Sprintf("COUNT(DISTINCT %s)", scope.currentColumn))
+	}
+	return scope.CountBy(fmt.Sprintf("COUNT(%s)", scope.currentColumn))
 }
 
 func (scope scope{{ .Name }}) UpdateSQL(sql string, vals ...interface{}) error {
