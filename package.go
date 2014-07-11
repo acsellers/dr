@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"fmt"
 	"go/ast"
 	"strings"
 )
@@ -11,6 +12,10 @@ type Package struct {
 	Subrecords  []Subrecord
 	ActiveFiles []ActiveFile
 	Funcs       map[string][]Func
+}
+
+func (p Package) Name() string {
+	return p.ActiveFiles[0].AST.Name.Name
 }
 
 type ActiveFile struct {
@@ -51,6 +56,7 @@ type Table struct {
 	name string
 	spec *ast.TypeSpec
 	file *ast.File
+	cols []Column
 }
 
 func (t Table) Name() string {
@@ -61,6 +67,21 @@ func (t Table) Spec() *ast.TypeSpec {
 }
 func (t Table) File() *ast.File {
 	return t.file
+}
+
+func (t *Table) Columns() []Column {
+	if len(t.cols) == 0 {
+		for _, field := range t.spec.Type.(*ast.StructType).Fields.List {
+			for _, name := range field.Names {
+				t.cols = append(t.cols, Column{fmt.Sprint(field.Type), name.Name})
+			}
+		}
+	}
+	return t.cols
+}
+
+type Column struct {
+	Type, Name string
 }
 
 type Subrecord struct {
