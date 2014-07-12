@@ -128,5 +128,44 @@ func TestUserCount(t *testing.T) {
 	if count != 2 {
 		t.Fatal("Wrong number of users")
 	}
+}
+
+func TestPlucks(t *testing.T) {
+	c, err := Open("mysql", "root:toor@/doc_test")
+	if err != nil {
+		t.Fatal("Open:", err)
+	}
+	ids, err := c.User.PluckInt()
+	if err != nil {
+		t.Fatal("Couldn't pluck ids:", err)
+	}
+	if len(ids) != 3 {
+		t.Fatal("Wrong number of users", ids)
+	}
+
+	names, err := c.User.FirstName().PluckString()
+	if err != nil {
+		t.Fatal("Couldn't pluck names:", err)
+	}
+	if len(names) != 3 {
+		t.Fatal("Wrong number of users", names)
+	}
+	names, err = c.User.FirstName().Distinct().PluckString()
+	if err != nil {
+		t.Fatal("Couldn't pluck names:", err)
+	}
+	if len(names) != 2 {
+		t.Fatal("Wrong number of users", names)
+	}
+	names, err = c.User.Eq(1).Pick("CONCAT(firstname, ' ', lastname)").PluckString()
+	if err != nil {
+		t.Fatal("Couldn't pluck names:", err)
+	}
+	if len(names) != 1 {
+		t.Fatal("Wrong number of users", names)
+	}
+	if names[0] != "Andrew Sellers" {
+		t.Fatal("Wrong name", names[0])
+	}
 
 }

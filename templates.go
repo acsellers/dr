@@ -69,6 +69,7 @@ type {{ .Name }}Scope interface {
 	SaveAll(vals []{{ .Name }}) error
 
 	// Subset plucking
+	Pick(sql string) {{ .Name }}Scope
 	PluckString() ([]string, error)
 	PluckInt() ([]int64, error)
 	PluckTime() ([]time.Time, error)
@@ -82,6 +83,8 @@ type {{ .Name }}Scope interface {
 	Delete() error
 
 	// Special operations
+	condSQL() (string, []interface{})
+	Clone() {{ .Name }}Scope
 	ToSQL() (string, []interface{})
 	As(alias string) {{ .Name }}Scope
 	Distinct() {{ .Name }}Scope
@@ -302,6 +305,16 @@ func (scope scope{{ .Name }}) Between(lower, upper interface{}) {{ .Name }}Scope
 }
 
 func (scope scope{{ .Name }}) In(vals ...interface{}) {{ .Name }}Scope {
+	if len(vals) == 0 {
+		if reflect.TypeOf(vals[0]).Kind() == reflect.Slice {
+			rv := reflect.ValueOf(vals[0])
+			vals = make([]interface{}, rv.Len())
+			for i := 0; i < rv.Len(); i++ {
+				vals[i] = rv.Index(i).Interface()
+			}
+		}
+	}
+
 	vc := make([]string, len(vals))
 	c := condition{
 		column: scope.currentColumn,
@@ -449,16 +462,85 @@ func (scope scope{{ .Name }}) SaveAll(vals []{{ .Name }}) error {
 }
 
 // subset plucking
+func (scope scope{{ .Name }}) Pick(sql string) {{ .Name }}Scope {
+	scope.isDistinct = false
+	scope.currentColumn = sql
+
+	return scope
+}
+
 func (scope scope{{ .Name }}) PluckString() ([]string, error) {
-	return []string{}, nil
+	if scope.isDistinct{
+		scope.currentColumn = "DISTINCT " + scope.currentColumn
+	}
+	scope.columns = []string{scope.currentColumn}
+	ss, vv := scope.ToSQL()
+	rows, err := scope.conn.Query(ss, vv...)
+	if err != nil {
+		return []string{}, err
+	}
+	vals := []string{}
+	defer rows.Close()
+	for rows.Next() {
+		var temp string
+		err = rows.Scan(&temp)
+		if err != nil {
+			return []string{}, err
+		}
+		vals = append(vals, temp)
+	}
+
+	return vals, nil
 }
 
 func (scope scope{{ .Name }}) PluckInt() ([]int64, error) {
-	return []int64{}, nil
+	if scope.isDistinct{
+		scope.currentColumn = "DISTINCT " + scope.currentColumn
+	}
+
+	scope.columns = []string{scope.currentColumn}
+	ss, vv := scope.ToSQL()
+	rows, err := scope.conn.Query(ss, vv...)
+	if err != nil {
+		return []int64{}, err
+	}
+	vals := []int64{}
+	defer rows.Close()
+	for rows.Next() {
+		var temp int64
+		err = rows.Scan(&temp)
+		if err != nil {
+			return []int64{}, err
+		}
+		vals = append(vals, temp)
+	}
+
+	return vals, nil
 }
 
 func (scope scope{{ .Name }}) PluckTime() ([]time.Time, error) {
-	return []time.Time{}, nil
+	if scope.isDistinct{
+		scope.currentColumn = "DISTINCT " + scope.currentColumn
+	}
+
+	scope.columns = []string{scope.currentColumn}
+	ss, vv := scope.ToSQL()
+	rows, err := scope.conn.Query(ss, vv...)
+	if err != nil {
+		return []time.Time{}, err
+	}
+	vals := []time.Time{}
+	defer rows.Close()
+	for rows.Next() {
+		var temp time.Time
+		err = rows.Scan(&temp)
+		if err != nil {
+			return []time.Time{}, err
+		}
+		vals = append(vals, temp)
+	}
+
+	return vals, nil
 }
 
 func (scope scope{{ .Name }}) PluckStruct(result interface{}) error {
@@ -491,14 +573,43 @@ func (scope scope{{ .Name }}) CountOf() int64 {
 }
 
 func (scope scope{{ .Name }}) UpdateSQL(sql string, vals ...interface{}) error {
-	return nil
+	scope.columns = []string{""}
+	ss, sv := scope.query()
+	ss = strings.TrimPrefix(ss, "SELECT FROM "+scope.table)
+	ss = fmt.Sprintf("UPDATE %s SET %s %s", scope.table, sql, ss)
+	_, err := scope.conn.Exec(ss, append(vals, sv...))
+	return err
 }
 
 func (scope scope{{ .Name }}) Delete() error {
-	return nil
+	delScope := scope.Clone()
+	if len(scope.joins) > 0 || len(scope.having) > 0 {
+		ids, err := scope.{{ .PrimaryKeyColumn.Name }}().Distinct().PluckInt()
+		if err != nil {
+			return err
+		}
+		delScope = delScope.ClearAll().{{ .PrimaryKeyColumn.Name }}().In(ids)
+	}
+	cs, cv := scope.condSQL()
+	sql := fmt.Sprintf("DELETE FROM %s WHERE %s",scope.table, cs)
+	_, err := scope.conn.Exec(sql, cv)
+	return err
+}
+func (scope scope{{ .Name }}) condSQL() (string, []interface{}) {
+	conds := []string{}
+	vals := []interface{}{}
+	for _, condition := range scope.conditions {
+		conds = append(conds, condition.ToSQL())
+		vals = append(vals, condition.vals...)
+	}
+	return strings.Join(conds, " AND "), vals
 }
 
 // special
+func (scope scope{{ .Name }}) Clone() {{ .Name }}Scope {
+	return scope
+}
+
 func (scope scope{{ .Name }}) ToSQL() (string, []interface{}) {
 	return scope.query()
 }
