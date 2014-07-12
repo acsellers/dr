@@ -23,6 +23,11 @@ import (
 	"time"
 )
 
+type Scope interface {
+	condSQL() (string, []interface{})
+	ToSQL() (string, []interface{})
+}
+
 {{ range $table := .Tables }}
 type {{ .Name }}Scope interface {
 	// column scopes
@@ -49,9 +54,15 @@ type {{ .Name }}Scope interface {
 	Desc() {{ .Name }}Scope
 	Asc() {{ .Name }}Scope
 
+	// Join funcs
+	OuterJoin(things ...Scope) {{ .Name }}Scope
+	InnerJoin(things ...Scope) {{ .Name }}Scope
+	JoinBy(joins string) {{ .Name }}Scope
+
 	// Aggregation filtering
 	Having(sql string, vals ...interface{}) {{ .Name }}Scope
-	// GroupBy(???) {{ .Name }}Scope
+	GroupBy(things ...Scope) {{ .Name }}Scope
+
 
 	// Result count filtering
 	Limit(limit int64) {{ .Name }}Scope
@@ -83,9 +94,10 @@ type {{ .Name }}Scope interface {
 	Delete() error
 
 	// Special operations
-	condSQL() (string, []interface{})
+	Scope
+
+	// special operations
 	Clone() {{ .Name }}Scope
-	ToSQL() (string, []interface{})
 	As(alias string) {{ .Name }}Scope
 	Distinct() {{ .Name }}Scope
 	And(...{{ .Name }}Scope) {{ .Name }}Scope
@@ -374,6 +386,23 @@ func (scope scope{{ .Name }}) Asc() {{ .Name }}Scope {
 	return scope
 }
 
+// Join funcs
+func (scope scope{{ .Name }})	OuterJoin(things ...Scope) {{ .Name }}Scope {
+	panic("UNIMPLEMENTED")
+	return scope
+}
+func (scope scope{{ .Name }})	InnerJoin(things ...Scope) {{ .Name }}Scope {
+	panic("UNIMPLEMENTED")
+	return scope
+}
+func (scope scope{{ .Name }})	JoinBy(joins string) {{ .Name }}Scope {
+	scope.joins = append(scope.joins, joins)
+	return scope
+}
+
+
+
+
 // aggregation filtering
 func (scope scope{{ .Name }}) Having(sql string, vals ...interface{}) {{ .Name }}Scope {
 	scope.having = append(scope.having, sql)
@@ -381,11 +410,10 @@ func (scope scope{{ .Name }}) Having(sql string, vals ...interface{}) {{ .Name }
 	return scope
 }
 
-/*
-	func (scope {{ .Name }}Scope) GroupBy(???) %!S(string={{ .Name }})cope {
-		return scope
-	}
-*/
+func (scope scope{{ .Name }}) GroupBy(scopes ...Scope) {{ .Name }}Scope {
+	panic("UNIMPLEMENTED")
+	return scope
+}
 
 // Result count filtering
 func (scope scope{{ .Name }}) Limit(limit int64) {{ .Name }}Scope {
@@ -458,6 +486,7 @@ func (scope scope{{ .Name }}) RetrieveAll() ([]{{ .Name }}, error) {
 }
 
 func (scope scope{{ .Name }}) SaveAll(vals []{{ .Name }}) error {
+	panic("UNIMPLEMENTED")
 	return nil
 }
 
@@ -544,6 +573,7 @@ func (scope scope{{ .Name }}) PluckTime() ([]time.Time, error) {
 }
 
 func (scope scope{{ .Name }}) PluckStruct(result interface{}) error {
+	panic("UNIMPLEMENTED")
 	return nil
 }
 
