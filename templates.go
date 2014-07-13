@@ -14,6 +14,7 @@ var genTemplate = `/*
 	If at all possible, please regenerate this file from your gp files instead of
 	attempting to edit it to add changes.
 */
+
 package {{ .Name }}
 
 import (
@@ -782,7 +783,9 @@ func init() {
 func (pkg *Package) OutputTemplates() {
 	b := &bytes.Buffer{}
 	err := tmpl.Execute(b, pkg)
-	fmt.Println(err)
+	if err != nil {
+		panic(err)
+	}
 
 	f, err := os.Create(pkg.ActiveFiles[0].AST.Name.Name + "_gen.go")
 	if err != nil {

@@ -57,8 +57,11 @@ func (pkg *Package) ParseSrc(src ...*os.File) error {
 		}
 		f.Write(ib)
 		f.Close()
-
 	}
+
+	b := bytes.Buffer{}
+	pkg.WriteSchemaFile(&b)
+	fmt.Println(b.String())
 
 	return nil
 }
@@ -193,7 +196,7 @@ DeclLoop:
 				}
 				for _, table := range tables {
 					if table == name {
-						pkg.Tables = append(pkg.Tables, Table{name, td, fa, []Column{}})
+						pkg.Tables = append(pkg.Tables, Table{name, td, fa, []Column{}, pkg})
 						active = true
 						continue DeclLoop
 					}
