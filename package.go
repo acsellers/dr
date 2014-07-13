@@ -175,7 +175,7 @@ func (c Column) IsChildHasMany() bool {
 
 func (c Column) IsHasOne() bool {
 	if !c.SimpleType() {
-		return !c.Array && c.Tag.Get("through") == ""
+		return !c.Array && c.Tag.Get("through") == "" && c.ChildColumn() != ""
 	}
 	return false
 }
