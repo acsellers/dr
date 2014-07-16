@@ -80,6 +80,10 @@ type {{ .Name }}Scope interface {
 	RetrieveAll() ([]{{ .Name }}, error)
 	SaveAll(vals []{{ .Name }}) error
 
+	// Scope attribute updating
+	Set(val interface{}) {{ .Name }}Scope
+	Update() error
+
 	// Subset plucking
 	Pick(sql string) {{ .Name }}Scope
 	PluckString() ([]string, error)
@@ -491,6 +495,17 @@ func (scope scope{{ .Name }}) SaveAll(vals []{{ .Name }}) error {
 	return nil
 }
 
+
+// Scope attribute updating
+func (scope scope{{ .Name }}) Set(val interface{}) {{ .Name }}Scope {
+	return scope
+}
+
+func (scope scope{{ .Name }}) Update() error {
+	panic("UNIMPLEMENTED")
+	return nil
+}
+
 // subset plucking
 func (scope scope{{ .Name }}) Pick(sql string) {{ .Name }}Scope {
 	scope.isDistinct = false
@@ -701,7 +716,7 @@ type mapper{{ $table.Name }}{{ $column.Name }} struct {
 	Mapper *mapper{{ $table.Name }}
 }
 
-{{ if eq $column.Type "int" }}
+{{ if eq $column.GoType "int" }}
 func (m mapper{{ $table.Name }}{{ $column.Name }}) Scan(v interface{}) error {
 	if v == nil {
 		// do nothing, use zero value
@@ -711,7 +726,7 @@ func (m mapper{{ $table.Name }}{{ $column.Name }}) Scan(v interface{}) error {
 
 	return nil
 }
-{{ else if eq $column.Type "string" }}
+{{ else if eq $column.GoType "string" }}
 func (m mapper{{ $table.Name }}{{ $column.Name }}) Scan(v interface{}) error {
 	if v == nil {
 		// do nothing, use zero value
@@ -723,7 +738,7 @@ func (m mapper{{ $table.Name }}{{ $column.Name }}) Scan(v interface{}) error {
 
 	return nil
 }
-{{ else if eq $column.Type "&{time Time}" }}
+{{ else if eq $column.GoType "&{time Time}" }}
 func (m mapper{{ $table.Name }}{{ $column.Name }}) Scan(v interface{}) error {
 	if v == nil {
 		// do nothing, use zero value
@@ -733,7 +748,6 @@ func (m mapper{{ $table.Name }}{{ $column.Name }}) Scan(v interface{}) error {
 
 	return nil
 }
-
 
 {{ end }}
 
@@ -767,6 +781,18 @@ func (c condition) ToSQL() string {
 		return c.cond
 	}
 	return c.column + " " + c.cond
+}
+
+func questions(n int) string {
+	chars := make([]byte, n*2-1)
+	for i, _ := range chars {
+		if i % 2 == 0 {
+			chars[i] = '?'
+		} else {
+			chars[i] = ','
+		}
+	}
+	return string(chars)
 }
 `
 

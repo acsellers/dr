@@ -42,7 +42,7 @@ var Schema = schema.Schema{
 
 func init() {
 	{{ range $table := .Tables }}
-		Schema["{{ .Name }}"].HasMany = []schema.ManyRelationship{
+		Schema.Tables["{{ .Name }}"].HasMany = []schema.ManyRelationship{
 			{{ range $column := $table.Columns }}
 				{{ if $column.IsHasMany }}
 					schema.ManyRelationship{
@@ -56,7 +56,7 @@ func init() {
 	{{ end }}
 
 	{{ range $table := .Tables }}
-		Schema["{{ .Name }}"].ChildOf = []schema.ManyRelationship{
+		Schema.Tables["{{ .Name }}"].ChildOf = []schema.ManyRelationship{
 			{{ range $column := $table.Columns }}
 				{{ if $column.IsChildHasMany }}
 					schema.ManyRelationship{
@@ -70,7 +70,7 @@ func init() {
 	{{ end }}
 
 	{{ range $table := .Tables }}
-		Schema["{{ .Name }}"].HasOne = []schema.OneRelationship{
+		Schema.Tables["{{ .Name }}"].HasOne = []schema.OneRelationship{
 			{{ range $column := $table.Columns }}
 				{{ if $column.IsHasOne }}
 					schema.OneRelationship{
@@ -84,7 +84,7 @@ func init() {
 	{{ end }}
 
 	{{ range $table := .Tables }}
-		Schema["{{ .Name }}"].BelongsTo = []schema.OneRelationship{
+		Schema.Tables["{{ .Name }}"].BelongsTo = []schema.OneRelationship{
 			{{ range $column := $table.Columns }}
 				{{ if $column.IsBelongsTo }}
 					schema.OneRelationship{
@@ -96,9 +96,68 @@ func init() {
 			{{ end }}
 		}
 	{{ end }}
-
-
 }
+
+{{ range $table := .Tables }}
+func (t {{ $table.Name }}) Save(c *Conn) error {
+
+	// check the primary key vs the zero value, if they match then
+	// we will assume we have a new record
+	var pkz {{ .PrimaryKeyColumn.GoType }}
+	if t.{{ .PrimaryKeyColumn.Name }} == pkz {
+		return t.create(c)
+	} else {
+		return t.update(c)
+	}
+}
+
+func (t {{ $table.Name }}) create(c *Conn) error {
+	vals := []interface{}{}
+	cols := []string{}
+	{{ range $column := $table.Columns }}
+		vals = append(vals, t.{{ $column.Name }})
+		cols = append(cols, c.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}"))
+	{{ end }}
+
+	sql := fmt.Sprintf(
+		"INSERT INTO %s (%s) VALUES (%s)",
+		c.SQLTable("{{ $table.Name }}"),
+		strings.Join(cols, ", "),
+		questions(len(cols)),
+	)
+	result, err := c.Exec(sql, vals)
+	if err != nil {
+		return err
+	}
+	
+	id, err := result.LastInsertId()
+	if err == nil {
+		t.{{ $table.PrimaryKeyColumn.Name }} = {{ $table.PrimaryKeyColumn.GoType }}(id)
+	}
+
+	return nil
+}
+
+func (t {{ $table.Name }}) update(c *Conn) error {
+	vals := []interface{}{}
+	cols := []string{}
+	{{ range $column := $table.Columns }}
+		{{ if not (eq $column.Name $table.PrimaryKeyColumn.Name) }}
+			vals = append(vals, t.{{ $column.Name }})
+			cols = append(cols, c.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}") + "= ?")
+		{{ end }}
+	{{ end }}
+
+	sql := fmt.Sprintf(
+		"UPDATE %s SET %s WHERE %s=?",
+		c.SQLTable("{{ $table.Name }}"),
+		strings.Join(cols, ", "),
+		"{{ $table.PrimaryKeyColumn.Name }}",
+	)
+	_, err := c.Exec(sql, append(vals, t.{{ $table.PrimaryKeyColumn.Name }}))
+	return err
+}
+{{ end }}
 `
 
 var sTmpl *template.Template
@@ -117,7 +176,7 @@ func (pkg *Package) WriteSchemaFile(w io.Writer) {
 	if err != nil {
 		panic(err)
 	}
-	ib, err := imports.Process(pkg.ActiveFiles[0].AST.Name.Name+"_gen.go", b.Bytes(), nil)
+	ib, err := imports.Process(pkg.ActiveFiles[0].AST.Name.Name+"_schema.go", b.Bytes(), nil)
 	if err != nil {
 		fmt.Println("Error in Gen File:", err)
 		w.Write(b.Bytes())

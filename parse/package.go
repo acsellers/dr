@@ -97,7 +97,7 @@ func (t *Table) Columns() []Column {
 					col.GoType = fmt.Sprint(at.Elt)
 				default:
 					if !col.SimpleType() {
-						fmt.Println(fmt.Sprint(field.Type))
+						// fmt.Println(fmt.Sprint(field.Type))
 					}
 				}
 				t.cols = append(t.cols, col)
