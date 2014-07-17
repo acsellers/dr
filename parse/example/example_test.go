@@ -167,5 +167,26 @@ func TestPlucks(t *testing.T) {
 	if names[0] != "Andrew Sellers" {
 		t.Fatal("Wrong name", names[0])
 	}
+}
 
+func TestSaves(t *testing.T) {
+	c, err := Open("mysql", "root:toor@/doc_test")
+	if err != nil {
+		t.Fatal("Open:", err)
+	}
+	u := User{
+		FirstName: "Ben",
+		LastName:  "Smith",
+	}
+	err = u.Save(c)
+	if err != nil {
+		t.Fatal("Save Err:", err)
+	}
+	if u.ID == 0 {
+		t.Fatal("Didn't update ID field on User")
+	}
+	err = u.Delete(c)
+	if err != nil {
+		t.Fatal("Destroy Err:", err)
+	}
 }

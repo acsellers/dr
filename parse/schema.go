@@ -99,7 +99,7 @@ func init() {
 }
 
 {{ range $table := .Tables }}
-func (t {{ $table.Name }}) Save(c *Conn) error {
+func (t *{{ $table.Name }}) Save(c *Conn) error {
 
 	// check the primary key vs the zero value, if they match then
 	// we will assume we have a new record
@@ -111,12 +111,14 @@ func (t {{ $table.Name }}) Save(c *Conn) error {
 	}
 }
 
-func (t {{ $table.Name }}) create(c *Conn) error {
+func (t *{{ $table.Name }}) create(c *Conn) error {
 	vals := []interface{}{}
 	cols := []string{}
 	{{ range $column := $table.Columns }}
-		vals = append(vals, t.{{ $column.Name }})
-		cols = append(cols, c.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}"))
+		{{ if ne $column.Name $table.PrimaryKeyColumn.Name }}
+			vals = append(vals, t.{{ $column.Name }})
+			cols = append(cols, c.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}"))
+		{{ end }}
 	{{ end }}
 
 	sql := fmt.Sprintf(
@@ -125,7 +127,7 @@ func (t {{ $table.Name }}) create(c *Conn) error {
 		strings.Join(cols, ", "),
 		questions(len(cols)),
 	)
-	result, err := c.Exec(sql, vals)
+	result, err := c.Exec(sql, vals...)
 	if err != nil {
 		return err
 	}
@@ -138,7 +140,7 @@ func (t {{ $table.Name }}) create(c *Conn) error {
 	return nil
 }
 
-func (t {{ $table.Name }}) update(c *Conn) error {
+func (t *{{ $table.Name }}) update(c *Conn) error {
 	vals := []interface{}{}
 	cols := []string{}
 	{{ range $column := $table.Columns }}
@@ -152,9 +154,19 @@ func (t {{ $table.Name }}) update(c *Conn) error {
 		"UPDATE %s SET %s WHERE %s=?",
 		c.SQLTable("{{ $table.Name }}"),
 		strings.Join(cols, ", "),
-		"{{ $table.PrimaryKeyColumn.Name }}",
+		c.SQLColumn("{{ $table.Name }}", "{{ $table.PrimaryKeyColumn.Name }}"),
 	)
-	_, err := c.Exec(sql, append(vals, t.{{ $table.PrimaryKeyColumn.Name }}))
+	_, err := c.Exec(sql, append(vals, t.{{ $table.PrimaryKeyColumn.Name }})...)
+	return err
+}
+
+func (t {{ $table.Name }}) Delete(c *Conn) error {
+	sql := fmt.Sprintf(
+		"DELETE FROM %s WHERE %s = ?",
+		c.SQLTable("{{ $table.Name }}"),
+		c.SQLColumn("{{ $table.Name }}", "{{ $table.PrimaryKeyColumn.Name }}"),
+	)
+	_, err := c.Exec(sql, t.{{ $table.PrimaryKeyColumn.Name }})
 	return err
 }
 {{ end }}
