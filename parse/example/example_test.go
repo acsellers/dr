@@ -185,6 +185,28 @@ func TestSaves(t *testing.T) {
 	if u.ID == 0 {
 		t.Fatal("Didn't update ID field on User")
 	}
+
+	count := c.User.LastName().Eq("Smith").Count()
+	if count != 1 {
+		t.Fatal("New user doesn't exist")
+	}
+
+	u.LastName = "Sisko"
+	err = u.Save(c)
+	if err != nil {
+		t.Fatal("Save error:", err)
+	}
+
+	count = c.User.LastName().Eq("Smith").Count()
+	if count != 0 {
+		t.Fatal("New user doesn't exist")
+	}
+
+	count = c.User.LastName().Eq("Sisko").Count()
+	if count != 1 {
+		t.Fatal("User didn't get updated")
+	}
+
 	err = u.Delete(c)
 	if err != nil {
 		t.Fatal("Destroy Err:", err)
