@@ -46,9 +46,9 @@ func init() {
 			{{ range $column := $table.Columns }}
 				{{ if $column.IsHasMany }}
 					schema.ManyRelationship{
-						Schema["{{ $table.Name }}"],
-						Schema["{{ $column.GoType }}"],
-						Schema["{{ $column.GoType }}"].FindColumn("{{ $column.ChildColumn }}"),
+						Schema.Tables["{{ $table.Name }}"],
+						Schema.Tables["{{ $column.GoType }}"],
+						Schema.Tables["{{ $column.GoType }}"].FindColumn("{{ $column.ChildColumn }}"),
 					},
 				{{ end }}
 			{{ end }}
@@ -60,9 +60,9 @@ func init() {
 			{{ range $column := $table.Columns }}
 				{{ if $column.IsChildHasMany }}
 					schema.ManyRelationship{
-						Schema["{{ $column.ParentCol.Tbl.Name }}"],
-						Schema["{{ $column.ParentCol.GoType }}"],
-						Schema["{{ $column.ParentCol.Tbl.Name }}"].FindColumn("{{ $column.Name }}"),
+						Schema.Tables["{{ $column.ParentCol.Tbl.Name }}"],
+						Schema.Tables["{{ $column.ParentCol.GoType }}"],
+						Schema.Tables["{{ $column.ParentCol.Tbl.Name }}"].FindColumn("{{ $column.Name }}"),
 					},
 				{{ end }}
 			{{ end }}
@@ -74,9 +74,9 @@ func init() {
 			{{ range $column := $table.Columns }}
 				{{ if $column.IsHasOne }}
 					schema.OneRelationship{
-						Schema["{{ $table.Name }}"],
-						Schema["{{ $column.GoType }}"],
-						Schema["{{ $column.GoType }}"].FindColumn("{{ $column.ChildColumn }}"),
+						Schema.Tables["{{ $table.Name }}"],
+						Schema.Tables["{{ $column.GoType }}"],
+						Schema.Tables["{{ $column.GoType }}"].FindColumn("{{ $column.ChildColumn }}"),
 					},
 				{{ end }}
 			{{ end }}
@@ -88,9 +88,9 @@ func init() {
 			{{ range $column := $table.Columns }}
 				{{ if $column.IsBelongsTo }}
 					schema.OneRelationship{
-						Schema["{{ $column.ParentCol.Tbl.Name }}"],
-						Schema["{{ $column.ParentCol.GoType }}"],
-						Schema["{{ $column.ParentCol.Tbl.Name }}"].FindColumn("{{ $column.Name }}"),
+						Schema.Tables["{{ $column.ParentCol.Tbl.Name }}"],
+						Schema.Tables["{{ $column.ParentCol.GoType }}"],
+						Schema.Tables["{{ $column.ParentCol.Tbl.Name }}"].FindColumn("{{ $column.Name }}"),
 					},
 				{{ end }}
 			{{ end }}

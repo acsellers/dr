@@ -212,3 +212,33 @@ func TestSaves(t *testing.T) {
 		t.Fatal("Destroy Err:", err)
 	}
 }
+
+func TestSetUpdate(t *testing.T) {
+	c, err := Open("mysql", "root:toor@/doc_test")
+	if err != nil {
+		t.Fatal("Open:", err)
+	}
+
+	err = c.User.FirstName().Eq("Nick").Set("Nicholas").Update()
+	if err != nil {
+		t.Fatal("Update error:", err)
+	}
+
+	countNo := c.User.FirstName().Eq("Nick").Count()
+	countGood := c.User.FirstName().Eq("Nicholas").Count()
+	if countNo != 0 || countGood != 1 {
+		t.Fatal("Couldn't change user name with Set().Update()")
+	}
+
+	err = c.User.Eq(3).FirstName().Set("Nick").Update()
+	if err != nil {
+		t.Fatal("Update error:", err)
+	}
+
+	countGood = c.User.FirstName().Eq("Nick").Count()
+	countNo = c.User.FirstName().Eq("Nicholas").Count()
+	if countNo != 0 || countGood != 1 {
+		t.Fatal("Couldn't change user name with Set().Update()")
+	}
+
+}

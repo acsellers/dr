@@ -31,6 +31,10 @@ func (t *Table) FindColumn(name string) *Column {
 	return nil
 }
 
+func (t *Table) PrimaryKeyColumn() *Column {
+	return &t.Columns[0]
+}
+
 type Column struct {
 	Name   string
 	Type   string

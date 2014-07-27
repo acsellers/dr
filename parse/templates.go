@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"regexp"
 	"text/template"
 
 	"code.google.com/p/go.tools/imports"
+	"github.com/acsellers/inflections"
 )
 
 var genTemplate = `/*
@@ -27,12 +29,30 @@ import (
 type Scope interface {
 	condSQL() (string, []interface{})
 	ToSQL() (string, []interface{})
+	scopeName() string
+	Conn() *Conn
+	SetConn(*Conn) Scope
+	joinOn(Scope) (string, bool)
+	joinable() string
+	joinTable() string
 }
+
+var (
+	{{ range $table := .Tables }}
+		{{ if public $table.Name }}
+			{{ if eq (plural $table.Name) $table.Name }}
+				{{ $table.Name }}s {{ .Name }}Scope = &scope{{ .Name }}{}
+			{{ else }}
+				{{ plural $table.Name }} {{ .Name }}Scope = &scope{{ .Name }}{}
+			{{ end }}
+		{{ end }}
+	{{ end }}
+)
 
 {{ range $table := .Tables }}
 type {{ .Name }}Scope interface {
 	// column scopes
-	{{ range $column := .Columns }}{{ $column.Name }}() {{ $table.Name }}Scope
+	{{ range $column := .Columns }}{{ if $column.SimpleType }}{{ $column.Name }}() {{ $table.Name }}Scope{{ end }}
 {{ end }}
 
 	// Basic conditions
@@ -48,8 +68,7 @@ type {{ .Name }}Scope interface {
 	Between(lower, upper interface{}) {{ .Name }}Scope
 	In(vals ...interface{}) {{ .Name }}Scope
 	NotIn(vals ...interface{}) {{ .Name }}Scope
-	Where(sql string, vals ...interface{}) {{ .Name }}Scope
-
+	Where(sql string, vals ...interface{}) {{ .Name }}Scope 
 	// ordering conditions
 	Order(ordering string) {{ .Name }}Scope
 	Desc() {{ .Name }}Scope
@@ -58,7 +77,7 @@ type {{ .Name }}Scope interface {
 	// Join funcs
 	OuterJoin(things ...Scope) {{ .Name }}Scope
 	InnerJoin(things ...Scope) {{ .Name }}Scope
-	JoinBy(joins string) {{ .Name }}Scope
+	JoinBy(joins string, joined ...Scope) {{ .Name }}Scope
 
 	// Aggregation filtering
 	Having(sql string, vals ...interface{}) {{ .Name }}Scope
@@ -164,12 +183,14 @@ type scope{{ .Name }} struct {
 	columns                     []string
 	order                       []string
 	joins                       []string
+	joinedScopes                []Scope
 	conditions                  []condition
 	having                      []string
 	havevals                    []interface{}
 	currentColumn, currentAlias string
 	isDistinct                  bool
 	limit, offset               *int64
+	updates                     map[string]interface{}
 }
 
 func new{{ .Name }}Scope(c *Conn) *scope{{ .Name }} {
@@ -178,6 +199,17 @@ func new{{ .Name }}Scope(c *Conn) *scope{{ .Name }} {
 		table:         c.SQLTable("{{ .Name }}"),
 		currentColumn: c.SQLTable("{{ .Name }}") + "." + c.SQLColumn("{{ .Name }}", "{{ .PrimaryKeyColumn.Name }}"),
 	}
+}
+
+func (scope scope{{ .Name }}) Conn() *Conn {
+	return scope.conn
+}
+func (scope scope{{ .Name }}) SetConn(conn *Conn) Scope {
+	scope.conn = conn
+	return scope
+}
+func (scope{{ .Name }}) scopeName() string {
+	return "{{ .Name }}"
 }
 
 func (s *scope{{ .Name }}) query() (string, []interface{}) {
@@ -199,13 +231,9 @@ func (s *scope{{ .Name }}) query() (string, []interface{}) {
 	sql = append(sql, s.joins...)
 
 	if len(s.conditions) > 0 {
-		sql = append(sql, "WHERE")
-		conds := []string{}
-		for _, condition := range s.conditions {
-			conds = append(conds, condition.ToSQL())
-			vals = append(vals, condition.vals...)
-		}
-		sql = append(sql, strings.Join(conds, " AND "))
+		cs, cv := s.conditionSQL()
+		sql = append(sql, "WHERE", cs)
+		vals = append(vals, cv...)
 	}
 
 	// if len(s.groupings) > 0 {
@@ -235,6 +263,16 @@ func (s *scope{{ .Name }}) query() (string, []interface{}) {
 	}
 
 	return strings.Join(sql, " "), vals
+}
+
+func (scope scope{{ .Name }}) conditionSQL() (string, []interface{}) {
+	var vals []interface{}
+	conds := []string{}
+	for _, condition := range scope.conditions {
+		conds = append(conds, condition.ToSQL())
+		vals = append(vals, condition.vals...)
+	}
+	return strings.Join(conds, " AND "), vals
 }
 
 // basic conditions
@@ -393,20 +431,141 @@ func (scope scope{{ .Name }}) Asc() {{ .Name }}Scope {
 
 // Join funcs
 func (scope scope{{ .Name }})	OuterJoin(things ...Scope) {{ .Name }}Scope {
-	panic("UNIMPLEMENTED")
+	for _, thing := range things {
+		thing = thing.SetConn(scope.conn)
+		if joinString, ok := scope.joinOn(thing); ok {
+			scope.joins = append(scope.joins, fmt.Sprintf(
+				"LEFT JOIN %s ON %s",
+				thing.joinable(),
+				joinString, 
+			))
+			scope.joinedScopes = append(scope.joinedScopes, thing)
+			continue
+		} else {
+			for _, joinscope := range scope.joinedScopes {
+				if joinString, ok := joinscope.joinOn(thing); ok {
+					scope.joins = append(scope.joins, fmt.Sprintf(
+						"LEFT JOIN %s ON %s",
+						thing.joinable(),
+						joinString, 
+					))
+					scope.joinedScopes = append(scope.joinedScopes, thing)
+					continue		
+				}
+			}
+		}
+		// error
+	}
 	return scope
 }
 func (scope scope{{ .Name }})	InnerJoin(things ...Scope) {{ .Name }}Scope {
-	panic("UNIMPLEMENTED")
+	for _, thing := range things {
+		thing = thing.SetConn(scope.conn)
+		if joinString, ok := scope.joinOn(thing); ok {
+			scope.joins = append(scope.joins, fmt.Sprintf(
+				"INNER JOIN %s ON %s",
+				thing.joinable(),
+				joinString, 
+			))
+			scope.joinedScopes = append(scope.joinedScopes, thing)
+			continue
+		} else {
+			for _, joinscope := range scope.joinedScopes {
+				if joinString, ok := joinscope.joinOn(thing); ok {
+					scope.joins = append(scope.joins, fmt.Sprintf(
+						"INNER JOIN %s ON %s",
+						thing.joinable(),
+						joinString, 
+					))
+					scope.joinedScopes = append(scope.joinedScopes, thing)
+					continue		
+				}
+			}
+		}
+		// error
+	}
+
 	return scope
 }
-func (scope scope{{ .Name }})	JoinBy(joins string) {{ .Name }}Scope {
+
+// JoinBy allows you to specify the exact join SQL statment for one or more
+// tables. You can also pass the Scope objects that you are manually joining, 
+// which are recorded for future Joining to work off of or to be Include'd.
+func (scope scope{{ .Name }})	JoinBy(joins string, joinedScopes ...Scope) {{ .Name }}Scope {
 	scope.joins = append(scope.joins, joins)
 	return scope
 }
 
+func (scope scope{{ .Name }}) joinOn(joinee Scope) (string, bool) {
+	ts := Schema.Tables["{{ .Name }}"]
+	for _, hm := range ts.HasMany {
+		if (hm.Parent.Name == scope.scopeName() && hm.Child.Name == joinee.scopeName()) || hm.Parent.Name == scope.scopeName() && hm.Child.Name == joinee.scopeName() {
+			pkc := hm.Parent.PrimaryKeyColumn()
+			return fmt.Sprintf(
+				"%s.%s = %s.%s",
+				scope.conn.SQLTable(hm.Parent.Name),
+				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
+				scope.conn.SQLTable(hm.Child.Name),
+				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
+			), true
+		}
+	}
+	for _, hm := range ts.ChildOf {
+		if (hm.Parent.Name == scope.scopeName() && hm.Child.Name == joinee.scopeName()) || hm.Parent.Name == scope.scopeName() && hm.Child.Name == joinee.scopeName() {
+			pkc := hm.Parent.PrimaryKeyColumn()
+			return fmt.Sprintf(
+				"%s.%s = %s.%s",
+				scope.conn.SQLTable(hm.Parent.Name),
+				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
+				scope.conn.SQLTable(hm.Child.Name),
+				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
+			), true
+		}
+	}
+	for _, hm := range ts.HasOne {
+		if (hm.Parent.Name == scope.scopeName() && hm.Child.Name == joinee.scopeName()) || hm.Parent.Name == scope.scopeName() && hm.Child.Name == joinee.scopeName() {
+			pkc := hm.Parent.PrimaryKeyColumn()
+			return fmt.Sprintf(
+				"%s.%s = %s.%s",
+				scope.conn.SQLTable(hm.Parent.Name),
+				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
+				scope.conn.SQLTable(hm.Child.Name),
+				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
+			), true
+		}
+	}
+	for _, hm := range ts.BelongsTo {
+		if (hm.Parent.Name == scope.scopeName() && hm.Child.Name == joinee.scopeName()) || hm.Parent.Name == scope.scopeName() && hm.Child.Name == joinee.scopeName() {
+			pkc := hm.Parent.PrimaryKeyColumn()
+			return fmt.Sprintf(
+				"%s.%s = %s.%s",
+				scope.conn.SQLTable(hm.Parent.Name),
+				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
+				scope.conn.SQLTable(hm.Child.Name),
+				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
+			), true
+		}
+	}
+	return "", false
+}
 
+func (scope scope{{ .Name }}) joinable() string {
+	if scope.currentAlias != "" {
+		return fmt.Sprintf(
+			"%s AS %s",
+			scope.conn.SQLTable("{{ .Name }}"),
+			scope.currentAlias,
+		)
+	}
+	return scope.conn.SQLTable("{{ .Name }}")
+}
 
+func (scope scope{{ .Name }}) joinTable() string {
+	if scope.currentAlias != "" {
+		return scope.currentAlias
+	}
+	return scope.conn.SQLTable("{{ .Name }}")
+}
 
 // aggregation filtering
 func (scope scope{{ .Name }}) Having(sql string, vals ...interface{}) {{ .Name }}Scope {
@@ -498,12 +657,35 @@ func (scope scope{{ .Name }}) SaveAll(vals []{{ .Name }}) error {
 
 // Scope attribute updating
 func (scope scope{{ .Name }}) Set(val interface{}) {{ .Name }}Scope {
+	if scope.updates == nil {
+		scope.updates = make(map[string]interface{})
+	}
+	scope.updates[scope.currentColumn] = val
 	return scope
 }
 
 func (scope scope{{ .Name }}) Update() error {
-	panic("UNIMPLEMENTED")
-	return nil
+	sql := fmt.Sprintf(
+		"UPDATE %s SET ",
+		scope.conn.SQLTable("{{ $table.Name }}"),
+	)
+
+	updates := []string{}
+	vals := []interface{}{}
+	for col, val := range scope.updates {
+		updates = append(updates, col + " = ?")
+		vals = append(vals, val)
+	}
+	sql += strings.Join(updates, ", ")
+
+	if len(scope.conditions) > 0 {
+		cs, cv := scope.conditionSQL()
+		sql += " WHERE " + cs
+		vals = append(vals, cv...)
+	}
+
+	_, err := scope.conn.Exec(sql, vals...)
+	return err
 }
 
 // subset plucking
@@ -702,56 +884,74 @@ func (scope scope{{ .Name }}) Or(scopes ...{{ .Name }}Scope) {{ .Name }}Scope {
 }
 
 {{ range $column := .Columns }}
-func (scope scope{{ $table.Name }}) {{ $column.Name }}() {{ $table.Name }}Scope {
-	scope.currentColumn =
-		scope.conn.SQLTable("{{ $table.Name }}") +
-			"." +
-			scope.conn.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}")
-	scope.currentAlias = ""
-	scope.isDistinct = false
-	return scope
-}
+	{{ if $column.SimpleType }}
+		func (scope scope{{ $table.Name }}) {{ $column.Name }}() {{ $table.Name }}Scope {
+			scope.currentColumn =
+				scope.conn.SQLTable("{{ $table.Name }}") +
+					"." +
+					scope.conn.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}")
+			scope.currentAlias = ""
+			scope.isDistinct = false
+			return scope
+		}
 
-type mapper{{ $table.Name }}{{ $column.Name }} struct {
-	Mapper *mapper{{ $table.Name }}
-}
+		type mapper{{ $table.Name }}{{ $column.Name }} struct {
+			Mapper *mapper{{ $table.Name }}
+		}
 
-{{ if eq $column.GoType "int" }}
-func (m mapper{{ $table.Name }}{{ $column.Name }}) Scan(v interface{}) error {
-	if v == nil {
-		// do nothing, use zero value
-	} else if s, ok := v.(int); ok {
-		(*m.Mapper.Current).{{ $column.Name }} = s
-	}
+		{{ if eq $column.GoType "int" }}
+			func (m mapper{{ $table.Name }}{{ $column.Name }}) Scan(v interface{}) error {
+				if v == nil {
+					// do nothing, use zero value
+				} else if s, ok := v.(int); ok {
+					{{ if $column.MustNull }}
+						(*m.Mapper.Current).{{ $column.Name }} = &s
+					{{ else }}
+						(*m.Mapper.Current).{{ $column.Name }} = s
+					{{ end }}
+				}
 
-	return nil
-}
-{{ else if eq $column.GoType "string" }}
-func (m mapper{{ $table.Name }}{{ $column.Name }}) Scan(v interface{}) error {
-	if v == nil {
-		// do nothing, use zero value
-	} else if s, ok := v.(string); ok {
-		(*m.Mapper.Current).{{ $column.Name }} = s
-	} else if s, ok := v.([]byte); ok {
-		(*m.Mapper.Current).{{ $column.Name }} = string(s)
-	}
+				return nil
+			}
+		{{ else if eq $column.GoType "string" }}
+			func (m mapper{{ $table.Name }}{{ $column.Name }}) Scan(v interface{}) error {
+				if v == nil {
+					// do nothing, use zero value
+				} else if s, ok := v.(string); ok {
+					{{ if $column.MustNull }}
+						(*m.Mapper.Current).{{ $column.Name }} = &s
+					{{ else }}
+						(*m.Mapper.Current).{{ $column.Name }} = s
+					{{ end }}
+				} else if s, ok := v.([]byte); ok {
+					{{ if $column.MustNull }}
+						(*m.Mapper.Current).{{ $column.Name }} = &string(s)
+					{{ else }}
+						(*m.Mapper.Current).{{ $column.Name }} = string(s)
+					{{ end }}
+				}
 
-	return nil
-}
-{{ else if eq $column.GoType "&{time Time}" }}
-func (m mapper{{ $table.Name }}{{ $column.Name }}) Scan(v interface{}) error {
-	if v == nil {
-		// do nothing, use zero value
-	} else if s, ok := v.(time.Time); ok {
-		(*m.Mapper.Current).{{ $column.Name }} = s
-	}
+				return nil
+			}
+		{{ else if eq $column.GoType "&{time Time}" }}
+			func (m mapper{{ $table.Name }}{{ $column.Name }}) Scan(v interface{}) error {
+				if v == nil {
+					// do nothing, use zero value
+				} else if s, ok := v.(time.Time); ok {
+					{{ if $column.MustNull }}
+						(*m.Mapper.Current).{{ $column.Name }} = &s
+					{{ else }}
+						(*m.Mapper.Current).{{ $column.Name }} = s
+					{{ end }}
+				}
 
-	return nil
-}
+				return nil
+			}
 
-{{ end }}
+		{{ end }}
 
 
+	{{ end }}
 {{ end }}
 
 type mapper{{ .Name }} struct {
@@ -763,7 +963,9 @@ func mapperFor{{ .Name }}() *mapper{{ .Name }} {
 	m := &mapper{{ .Name }}{}
 	m.Scanners = []interface{}{
 		{{ range $column := .Columns }}
-		mapper{{ $table.Name }}{{ $column.Name }}{m},
+			{{ if $column.SimpleType }}
+				mapper{{ $table.Name }}{{ $column.Name }}{m},
+			{{ end }}
 		{{ end }}
 	}
 	return m
@@ -799,8 +1001,16 @@ func questions(n int) string {
 var tmpl *template.Template
 
 func init() {
+	rg := regexp.MustCompile(`^[A-Z].*`)
 	var err error
-	tmpl, err = template.New("gen").Parse(genTemplate)
+	tmpl, err = template.New("gen").
+		Funcs(template.FuncMap{
+		"plural": inflections.Pluralize,
+		"public": func(s string) bool {
+			return rg.MatchString(s)
+		},
+	}).
+		Parse(genTemplate)
 	if err != nil {
 		panic(err)
 	}
