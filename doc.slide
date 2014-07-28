@@ -1,0 +1,54 @@
+Doc ORM Builder
+
+Andrew Sellers
+GradesFirst
+
+* Doc ORM Basics
+
+- Parses tables as ast.StructType
+- Rewrites ast's as necessary to complete ast's
+- Uses go.tools/imports to format code
+- Generates code according to template for schema, scopes, AR-ish functions
+
+* Using Doc
+
+- Developers write code in almost Go in gp files
+- Then run doc command in the package folder
+- Doc parses in the gp files, then outputs a bunch of Go files
+- Each .gp file gets converted into a .go file
+- Doc then generates <package name>_def.go and <package name>_schema.go file
+
+* Schema
+
+- Doc reads through structs, finds simple fields, then adds them to the schema
+- Doc then reads through fields again, and locates related fields
+- Then outputs each of the 4 current relationships
+- ManyRelationships: HasMany & ChildOf
+- OneRelationship: HasOne & BelongsTo
+- Coming Soon: HasManyThrough & DescendentOf
+
+* Mixins
+
+* Subrecords
+
+* Column Scoping
+
+- Columns of the model save themselves and you can then use them for
+- Basic Filtering: Eq, Neq, Lt, Gte, Like, In, ...
+- Order SQL things: Desc, Asc
+- Pluck columns: PluckString, PluckInt, PluckTime
+
+* Scopes
+
+- Limit, Offset, Clear, ClearAll, Base
+- Pass Scopes to functions
+- Eq, Neq, Between
+- InnerJoin, OuterJoin
+
+* Escape Hatch
+
+- Builtin Column scopes can be magical, but what about special things
+- Pick(sql) will allow you to Pluck anything
+- Where(sql, vals...) for plain sql filtering
+- JoinBy(string) for joining manually
+- Order(string) for random ordering
