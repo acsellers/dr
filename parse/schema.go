@@ -61,8 +61,8 @@ func init() {
 				{{ if $column.IsChildHasMany }}
 					schema.ManyRelationship{
 						Schema.Tables["{{ $column.ParentCol.Tbl.Name }}"],
-						Schema.Tables["{{ $column.ParentCol.GoType }}"],
-						Schema.Tables["{{ $column.ParentCol.Tbl.Name }}"].FindColumn("{{ $column.Name }}"),
+						Schema.Tables["{{ $table.Name }}"],
+						Schema.Tables["{{ $table.Name }}"].FindColumn("{{ $column.Name }}"),
 					},
 				{{ end }}
 			{{ end }}
@@ -90,7 +90,7 @@ func init() {
 					schema.OneRelationship{
 						Schema.Tables["{{ $column.ParentCol.Tbl.Name }}"],
 						Schema.Tables["{{ $column.ParentCol.GoType }}"],
-						Schema.Tables["{{ $column.ParentCol.Tbl.Name }}"].FindColumn("{{ $column.Name }}"),
+						Schema.Tables["{{ $column.ParentCol.GoType }}"].FindColumn("{{ $column.Name }}"),
 					},
 				{{ end }}
 			{{ end }}

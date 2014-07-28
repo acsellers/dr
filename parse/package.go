@@ -169,7 +169,17 @@ func (c Column) IsHasMany() bool {
 	return false
 }
 
-func (c Column) IsChildHasMany() bool {
+func (c *Column) IsChildHasMany() bool {
+	if parent := c.Tag.Get("child"); parent != "" && c.ParentCol == nil {
+		for _, t := range c.Pkg.Tables {
+			if t.Name() == parent {
+				pc := t.PrimaryKeyColumn()
+				c.ParentCol = &pc
+				c.ChildHasMany = true
+				return true
+			}
+		}
+	}
 	return c.ParentCol != nil && c.ChildHasMany
 }
 

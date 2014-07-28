@@ -7,6 +7,7 @@ type User table {
 	Website string
 	BanExpiration *time.Time
 	Signature string `type:"text"`
+  Posts []Post `column:"AuthorID"`
   Threads []Thread `column:"AuthorID"`
   postLikes []postLike
   LikedPosts []Post `through:"postLikes"`
@@ -25,13 +26,13 @@ type Forum table {
 type forumMod table {
 	ID int
 	ForumID int
-	UserID int
+	UserID int `child:"User"`
 }
 
 type pinnedThread table {
 	ID int
 	ForumID int
-	ThreadID int
+	ThreadID int `child:"Thread"`
 }
 
 type Thread table {

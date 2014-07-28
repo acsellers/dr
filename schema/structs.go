@@ -36,9 +36,10 @@ func (t *Table) PrimaryKeyColumn() *Column {
 }
 
 type Column struct {
-	Name   string
-	Type   string
-	Length int
+	Name       string
+	Previously string
+	Type       string
+	Length     int
 }
 
 type Index struct {
