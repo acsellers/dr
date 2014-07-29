@@ -115,7 +115,7 @@ func (t *{{ $table.Name }}) create(c *Conn) error {
 	vals := []interface{}{}
 	cols := []string{}
 	{{ range $column := $table.Columns }}
-		{{ if ne $column.Name $table.PrimaryKeyColumn.Name }}
+		{{ if and (ne $column.Name $table.PrimaryKeyColumn.Name) $column.SimpleType }}
 			vals = append(vals, t.{{ $column.Name }})
 			cols = append(cols, c.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}"))
 		{{ end }}
@@ -144,7 +144,7 @@ func (t *{{ $table.Name }}) update(c *Conn) error {
 	vals := []interface{}{}
 	cols := []string{}
 	{{ range $column := $table.Columns }}
-		{{ if not (eq $column.Name $table.PrimaryKeyColumn.Name) }}
+		{{ if and (ne $column.Name $table.PrimaryKeyColumn.Name) $column.SimpleType }}
 			vals = append(vals, t.{{ $column.Name }})
 			cols = append(cols, c.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}") + "= ?")
 		{{ end }}

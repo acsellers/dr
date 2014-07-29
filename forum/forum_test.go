@@ -1,14 +1,15 @@
-package example
+package forum
 
 import (
 	"fmt"
 	"testing"
 
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/acsellers/doc/migrate"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func TestUserSimple(t *testing.T) {
-	c, err := Open("mysql", "root:toor@/doc_test")
+	c, err := OpenForTest("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatal("Open:", err)
 	}
@@ -81,7 +82,7 @@ func TestUserSimple(t *testing.T) {
 }
 
 func TestUserRetrieve(t *testing.T) {
-	c, err := Open("mysql", "root:toor@/doc_test")
+	c, err := OpenForTest("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatal("Open:", err)
 	}
@@ -110,7 +111,7 @@ func TestUserRetrieve(t *testing.T) {
 }
 
 func TestUserCount(t *testing.T) {
-	c, err := Open("mysql", "root:toor@/doc_test")
+	c, err := OpenForTest("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatal("Open:", err)
 	}
@@ -131,7 +132,7 @@ func TestUserCount(t *testing.T) {
 }
 
 func TestPlucks(t *testing.T) {
-	c, err := Open("mysql", "root:toor@/doc_test")
+	c, err := OpenForTest("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatal("Open:", err)
 	}
@@ -157,7 +158,7 @@ func TestPlucks(t *testing.T) {
 	if len(names) != 2 {
 		t.Fatal("Wrong number of users", names)
 	}
-	names, err = c.User.Eq(1).Pick("CONCAT(firstname, ' ', lastname)").PluckString()
+	names, err = c.User.Eq(1).Pick("firstname || ' ' || lastname").PluckString()
 	if err != nil {
 		t.Fatal("Couldn't pluck names:", err)
 	}
@@ -170,7 +171,7 @@ func TestPlucks(t *testing.T) {
 }
 
 func TestSaves(t *testing.T) {
-	c, err := Open("mysql", "root:toor@/doc_test")
+	c, err := OpenForTest("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatal("Open:", err)
 	}
@@ -214,7 +215,7 @@ func TestSaves(t *testing.T) {
 }
 
 func TestSetUpdate(t *testing.T) {
-	c, err := Open("mysql", "root:toor@/doc_test")
+	c, err := OpenForTest("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatal("Open:", err)
 	}
@@ -241,4 +242,26 @@ func TestSetUpdate(t *testing.T) {
 		t.Fatal("Couldn't change user name with Set().Update()")
 	}
 
+}
+
+func OpenForTest(location, connection string) (*Conn, error) {
+	c, err := Open(location, connection)
+	if err != nil {
+		return nil, err
+	}
+	db := migrate.Database{
+		DB:         c.DB,
+		Schema:     Schema,
+		Translator: &AppConfig{},
+		DBMS:       migrate.Generic,
+	}
+	db.Migrate()
+
+	err = c.User.SaveAll([]User{
+		User{FirstName: "Andrew", LastName: "Sellers"},
+		User{FirstName: "Andrew", LastName: "Fellers"},
+		User{FirstName: "Nick", LastName: "Sellers"},
+	})
+
+	return c, err
 }

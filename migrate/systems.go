@@ -14,7 +14,7 @@ type GenericDB struct {
 }
 
 func (g *GenericDB) CreateTable(table *schema.Table) error {
-	// vals := []interface{}{}
+	vals := []interface{}{}
 	sql := fmt.Sprintf(
 		"CREATE TABLE %s(",
 		g.Convert.SQLTable(table.Name),
@@ -72,10 +72,8 @@ func (g *GenericDB) CreateTable(table *schema.Table) error {
 
 	sql += strings.Join(defs, ", ") + ")"
 
-	fmt.Println(sql)
-	return nil
-	//_, err := g.DB.Exec(sql, vals)
-	//return err
+	_, err := g.DB.Exec(sql, vals...)
+	return err
 }
 
 func (g *GenericDB) AddColumn(table *schema.Table, col *schema.Column) error {

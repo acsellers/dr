@@ -5,7 +5,6 @@ package migrate
 import (
 	"database/sql"
 	"flag"
-	"fmt"
 
 	"github.com/acsellers/doc/schema"
 )
@@ -47,7 +46,6 @@ func (d *Database) UpToDate() (bool, error) {
 	for _, table := range d.Schema.Tables {
 		d.NewTables = append(d.NewTables, table)
 	}
-	fmt.Println("Checked")
 	return false, nil
 }
 
@@ -58,7 +56,6 @@ func (d *Database) Migrate() error {
 	}
 
 	for _, table := range d.NewTables {
-		fmt.Println("Create table", table.Name)
 		d.CreateTable(table)
 	}
 

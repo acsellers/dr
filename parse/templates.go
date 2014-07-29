@@ -650,7 +650,12 @@ func (scope scope{{ .Name }}) RetrieveAll() ([]{{ .Name }}, error) {
 }
 
 func (scope scope{{ .Name }}) SaveAll(vals []{{ .Name }}) error {
-	panic("UNIMPLEMENTED")
+	for _, val := range vals {
+		err := val.Save(scope.conn)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -660,7 +665,8 @@ func (scope scope{{ .Name }}) Set(val interface{}) {{ .Name }}Scope {
 	if scope.updates == nil {
 		scope.updates = make(map[string]interface{})
 	}
-	scope.updates[scope.currentColumn] = val
+	colName := strings.TrimPrefix(scope.currentColumn, scope.conn.SQLTable("{{ $table.Name }}")+".")
+	scope.updates[colName] = val
 	return scope
 }
 

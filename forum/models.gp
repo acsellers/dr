@@ -3,7 +3,8 @@ package forum
 type User table {
 	ID int
 	FirstName, LastName string
-        Email, password string
+  ScreenName string
+  Email, password string
 	Website string
 	BanExpiration *time.Time
 	Signature string `type:"text"`
@@ -11,6 +12,7 @@ type User table {
   Threads []Thread `column:"AuthorID"`
   postLikes []postLike
   LikedPosts []Post `through:"postLikes"`
+  Timestamps
 }
 
 type Forum table {
@@ -62,4 +64,8 @@ type postLike table {
 	ID int
 	PostID int
 	UserID int
+}
+
+type Timestamps mixin {
+  CreatedAt, UpdatedAt time.Time
 }
