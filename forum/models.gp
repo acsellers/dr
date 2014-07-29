@@ -5,14 +5,29 @@ type User table {
 	FirstName, LastName string
   ScreenName string
   Email, password string
-	Website string
 	BanExpiration *time.Time
-	Signature string `type:"text"`
+
   Posts []Post `column:"AuthorID"`
   Threads []Thread `column:"AuthorID"`
   postLikes []postLike
   LikedPosts []Post `through:"postLikes"`
+  Blather Blather
   Timestamps
+}
+
+type Blather table {
+  ID int
+  UserID int
+
+	Website string
+	Signature string `type:"text"`
+  Likes string `type:"text"`
+  Dislikes string `type:"text"`
+  Story string `type:"text"`
+  AnswerA string
+  AnswerB string
+  AnswerC string
+  AnswerD string
 }
 
 type Forum table {
