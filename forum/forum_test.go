@@ -244,6 +244,39 @@ func TestSetUpdate(t *testing.T) {
 
 }
 
+func TestJoins(t *testing.T) {
+	c, err := OpenForTest("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal("Open:", err)
+	}
+	b := Blather{
+		Website: "http://nickiewickie.com",
+	}
+	u, err := c.User.FirstName().Eq("Nick").Retrieve()
+	if err != nil {
+		t.Fatal("Get user:", err)
+	}
+	b.UserID = u.ID
+	b.Save(c)
+
+	fmt.Println(u, b)
+
+	if cnt := c.Blather.Count(); cnt != 1 {
+		t.Fatal("Incorrect blathers:", cnt)
+	}
+
+	scope := c.User.InnerJoin(Blathers)
+	if cnt := scope.Count(); cnt != 1 {
+		s, _ := scope.ToSQL()
+		t.Fatal("Bad Count:", cnt, "Incorrect inner join:", s)
+	}
+
+	outcnt := c.User.OuterJoin(Blathers).Where("blather.id IS NULL").Count()
+	if outcnt != 2 {
+		t.Fatal("Incorrect outer join join")
+	}
+}
+
 func OpenForTest(location, connection string) (*Conn, error) {
 	c, err := Open(location, connection)
 	if err != nil {

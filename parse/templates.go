@@ -617,11 +617,12 @@ func (scope scope{{ .Name }}) Find(id interface{}) ({{ .Name }}, error) {
 }
 
 func (scope scope{{ .Name }}) Retrieve() ({{ .Name }}, error) {
+	val := &{{ .Name }}{}
+	m := mapperFor{{ .Name }}(scope.conn)
+	m.Current = &val
+
 	ss, vv := scope.ToSQL()
 	row := scope.conn.QueryRow(ss, vv...)
-	val := &{{ .Name }}{}
-	m := mapperFor{{ .Name }}()
-	m.Current = &val
 	err := row.Scan(m.Scanners...)
 	return *val, err
 
@@ -635,7 +636,7 @@ func (scope scope{{ .Name }}) RetrieveAll() ([]{{ .Name }}, error) {
 	}
 	vals := []{{ .Name }}{}
 	defer rows.Close()
-	m := mapperFor{{ .Name }}()
+	m := mapperFor{{ .Name }}(scope.conn)
 	for rows.Next() {
 		temp := &{{ .Name }}{}
 		m.Current = &temp
@@ -909,11 +910,13 @@ func (scope scope{{ .Name }}) Or(scopes ...{{ .Name }}Scope) {{ .Name }}Scope {
 			func (m mapper{{ $table.Name }}{{ $column.Name }}) Scan(v interface{}) error {
 				if v == nil {
 					// do nothing, use zero value
-				} else if s, ok := v.(int); ok {
+				} else if s, ok := v.(int64); ok {
 					{{ if $column.MustNull }}
-						(*m.Mapper.Current).{{ $column.Name }} = &s
+						var temp int
+						temp = int(s)
+						(*m.Mapper.Current).{{ $column.Name }} = &temp
 					{{ else }}
-						(*m.Mapper.Current).{{ $column.Name }} = s
+						(*m.Mapper.Current).{{ $column.Name }} = int(s)
 					{{ end }}
 				}
 
@@ -962,11 +965,19 @@ func (scope scope{{ .Name }}) Or(scopes ...{{ .Name }}Scope) {{ .Name }}Scope {
 
 type mapper{{ .Name }} struct {
 	Current  **{{ .Name }}
+	Columns  []string
 	Scanners []interface{}
 }
 
-func mapperFor{{ .Name }}() *mapper{{ .Name }} {
+func mapperFor{{ .Name }}(c *Conn) *mapper{{ .Name }} {
 	m := &mapper{{ .Name }}{}
+	m.Columns = []string{
+		{{ range $column := .Columns }}
+			{{ if $column.SimpleType }}
+				c.SQLTable("{{ $table.Name }}") + "." + c.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}"),
+			{{ end }}
+		{{ end }}
+	}
 	m.Scanners = []interface{}{
 		{{ range $column := .Columns }}
 			{{ if $column.SimpleType }}
