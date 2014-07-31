@@ -75,6 +75,22 @@ func (t Table) File() *ast.File {
 func (t *Table) Columns() []Column {
 	if len(t.cols) == 0 {
 		for _, field := range t.spec.Type.(*ast.StructType).Fields.List {
+			if len(field.Names) == 0 {
+				col := Column{
+					Name:   "",
+					Pkg:    t.Pkg,
+					Tbl:    t,
+					GoType: fmt.Sprint(field.Type),
+				}
+				if field.Tag != nil && len(field.Tag.Value) > 0 {
+					col.Tag = reflect.StructTag(field.Tag.Value[1 : len(field.Tag.Value)-1])
+				}
+				if se, ok := field.Type.(*ast.StarExpr); ok {
+					col.MustNull = true
+					col.GoType = fmt.Sprint(se.X)
+				}
+				t.cols = append(t.cols, col)
+			}
 			for _, name := range field.Names {
 				var value string
 				if field.Tag != nil && len(field.Tag.Value) > 0 {
@@ -95,10 +111,6 @@ func (t *Table) Columns() []Column {
 				case *ast.ArrayType:
 					col.Array = true
 					col.GoType = fmt.Sprint(at.Elt)
-				default:
-					if !col.SimpleType() {
-						// fmt.Println(fmt.Sprint(field.Type))
-					}
 				}
 				t.cols = append(t.cols, col)
 			}
@@ -120,6 +132,9 @@ type Column struct {
 	ParentCol    *Column
 	ChildHasMany bool
 	Tbl          *Table
+	IncludeName  string
+	// for subrecords
+	cols []Column
 }
 
 func (c Column) SimpleType() bool {
@@ -137,6 +152,66 @@ func (c Column) SimpleType() bool {
 	default:
 		return false
 	}
+}
+
+func (c Column) Subrecord() *Subrecord {
+	if c.SimpleType() {
+		return nil
+	}
+	for _, sr := range c.Pkg.Subrecords {
+		if c.GoType == sr.name {
+			return &sr
+		}
+	}
+	return nil
+}
+
+func (c Column) Subcolumns() chan Column {
+	ch := make(chan Column)
+	go c.IterateColumns(ch)
+	return ch
+}
+
+func (c *Column) IterateColumns(ch chan Column) {
+	t := c.Subrecord()
+
+	if len(c.cols) == 0 {
+		for _, field := range t.spec.Type.(*ast.StructType).Fields.List {
+			for _, name := range field.Names {
+				var value string
+				if field.Tag != nil && len(field.Tag.Value) > 0 {
+					// chop off `'s to turn it into a struct tag
+					value = field.Tag.Value[1 : len(field.Tag.Value)-1]
+				}
+				col := Column{
+					Name:        name.Name,
+					Tag:         reflect.StructTag(value),
+					Pkg:         c.Pkg,
+					Tbl:         c.Tbl,
+					IncludeName: t.Name(),
+				}
+				col.GoType = fmt.Sprint(field.Type)
+				switch at := field.Type.(type) {
+				case *ast.StarExpr:
+					col.MustNull = true
+					col.GoType = fmt.Sprint(at.X)
+				case *ast.ArrayType:
+					col.Array = true
+					col.GoType = fmt.Sprint(at.Elt)
+				default:
+					if sr := col.Subrecord(); sr != nil {
+						col.IterateColumns(ch)
+					}
+				}
+				if col.SimpleType() {
+					ch <- col
+				}
+				c.cols = append(c.cols, col)
+			}
+		}
+	}
+
+	close(ch)
 }
 
 func (c Column) Type() string {
@@ -264,6 +339,9 @@ type Subrecord struct {
 }
 
 func (t Subrecord) Name() string {
+	if t.name == "" {
+		return t.spec.Name.Name
+	}
 	return t.name
 }
 func (t Subrecord) Spec() *ast.TypeSpec {

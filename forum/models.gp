@@ -33,11 +33,21 @@ type Blather table {
 type Forum table {
 	ID int
 	Name string
-	Rules string `type:"text"`
+
+  ForumBlather
+
 	mods []forumMod
 	Moderators []User `through:"mods"`
 	pinneds []pinnedThread
 	PinnedThreads []Thread `through:"pinneds"`
+}
+
+type ForumBlather subrecord {
+	Rules string `type:"text"`
+  Summary string `type:"text"`
+  Events string `type:"text"`
+  ImageURL string
+  CSS string `type:"text"`
 }
 
 type forumMod table {
@@ -70,6 +80,7 @@ type Post table {
 	Author User
 	ParentID *int
 	Parent *Post
+
 	Body string `type:"text"`
 	likes []postLike
 	Likers []User `through:"likes"`
@@ -84,3 +95,4 @@ type postLike table {
 type Timestamps mixin {
   CreatedAt, UpdatedAt time.Time
 }
+

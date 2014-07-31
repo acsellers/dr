@@ -33,6 +33,16 @@ var Schema = schema.Schema{
 								Length: {{ $column.Length }},
 							},
 						{{ end }}
+						{{ if $column.Subrecord }}
+							{{ range $subcolumn := $column.Subcolumns }}
+								schema.Column{
+									Name: "{{ $subcolumn.Name }}",
+									Type: "{{ $subcolumn.Type }}",
+									Length: {{ $subcolumn.Length }},
+									IncludeName: "{{ $subcolumn.IncludeName }}",
+								},
+							{{ end }}
+						{{ end }}
 					{{ end }}
 				},
 			},

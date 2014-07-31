@@ -259,8 +259,6 @@ func TestJoins(t *testing.T) {
 	b.UserID = u.ID
 	b.Save(c)
 
-	fmt.Println(u, b)
-
 	if cnt := c.Blather.Count(); cnt != 1 {
 		t.Fatal("Incorrect blathers:", cnt)
 	}
