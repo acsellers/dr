@@ -137,6 +137,23 @@ type Column struct {
 	cols []Column
 }
 
+func (c Column) NonZeroCheck() string {
+	switch c.GoType {
+	case "int", "int32", "int64", "int16":
+		return " != 0"
+	case "string":
+		return ` != ""`
+	case "&{time Time}":
+		return ".IsZero()"
+	case "float32", "float64":
+		return " != 0.0"
+	case "bool":
+		return ""
+	default:
+		return " != nil"
+	}
+}
+
 func (c Column) SimpleType() bool {
 	switch c.GoType {
 	case "int", "int32", "int64", "int16":
@@ -336,6 +353,10 @@ type Subrecord struct {
 	name string
 	spec *ast.TypeSpec
 	file *ast.File
+}
+
+func (s *Subrecord) AddRetrieved() {
+
 }
 
 func (t Subrecord) Name() string {

@@ -40,6 +40,7 @@ func (pkg *Package) ParseSrc(src ...*os.File) error {
 	}
 	for _, subrecord := range pkg.Subrecords {
 		pkg.processForMixins(subrecord)
+		subrecord.AddRetrieved()
 	}
 
 	// Write out processed files

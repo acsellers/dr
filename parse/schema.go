@@ -129,6 +129,16 @@ func (t *{{ $table.Name }}) create(c *Conn) error {
 			vals = append(vals, t.{{ $column.Name }})
 			cols = append(cols, c.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}"))
 		{{ end }}
+		{{ if $column.Subrecord }}
+			{{ range $subcolumn := $column.Subcolumns }}
+				{{ if $subcolumn.SimpleType }}
+					if t.{{ $column.Subrecord.Name }}.{{ $subcolumn.Name }}{{ $subcolumn.NonZeroCheck }} {
+						vals = append(vals, t.{{ $column.Subrecord.Name }}.{{ $subcolumn.Name }})
+						cols = append(cols, c.SQLColumn("{{ $table.Name }}", "{{ $subcolumn.Name }}"))
+					}
+				{{ end }}
+			{{ end }}
+		{{ end }}
 	{{ end }}
 
 	sql := fmt.Sprintf(

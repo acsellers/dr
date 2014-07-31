@@ -275,6 +275,24 @@ func TestJoins(t *testing.T) {
 	}
 }
 
+func TestSubrecord(t *testing.T) {
+	c, err := OpenForTest("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal("Open:", err)
+	}
+	f := Forum{Name: "Lounge"}
+	f.ForumBlather.Rules = "No Rules"
+	err = f.Save(c)
+	if err != nil {
+		t.Fatal("Save")
+	}
+
+	cnt := c.Forum.ForumBlather().Rules().Eq("No Rules").Count()
+	if cnt != 1 {
+		t.Fatal("Count of subrecord fail")
+	}
+}
+
 func OpenForTest(location, connection string) (*Conn, error) {
 	c, err := Open(location, connection)
 	if err != nil {

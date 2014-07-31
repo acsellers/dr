@@ -101,6 +101,8 @@ type {{ .Name }}Scope interface {
 	// column scopes
 	{{ range $column := .Columns }}{{ if $column.SimpleType }}{{ $column.Name }}() {{ $table.Name }}Scope{{ end }}
 {{ end }}
+	{{ range $column := .Columns }}{{ if $column.Subrecord }}{{ $column.Subrecord.Name }}() {{ $table.Name }}{{ $column.Subrecord.Name }}Scope{{ end }}
+{{ end }}
 
 	// Basic conditions
 	Eq(val interface{}) {{ .Name }}Scope
@@ -974,7 +976,31 @@ func (scope scope{{ .Name }}) Or(scopes ...{{ .Name }}Scope) {{ .Name }}Scope {
 		{{ end }}
 	{{ end }}
 	{{ if $column.Subrecord }}
+		type scope{{ $table.Name }}{{ $column.Subrecord.Name }} struct {
+			scope scope{{ $table.Name }}
+		}
+		type {{ $table.Name }}{{ $column.Subrecord.Name }}Scope interface {
+			{{ range $subcolumn := $column.Subcolumns }}
+			  {{ $subcolumn.Name }}() {{ $table.Name }}Scope
+			{{ end }}
+		}
+
+		func (scope scope{{ $table.Name }}) {{ $column.Subrecord.Name }}() {{ $table.Name }}{{ $column.Subrecord.Name }}Scope {
+			return scope{{ $table.Name }}{{ $column.Subrecord.Name }}{scope}
+		}
+	
 		{{ range $subcolumn := $column.Subcolumns }}
+
+			func (scope scope{{ $table.Name }}{{ $column.Subrecord.Name }}) {{ $subcolumn.Name }}() {{ $table.Name }}Scope {
+				scope.scope.currentColumn = 	
+					scope.scope.conn.SQLTable("{{ $table.Name }}") +
+						"." +
+						scope.scope.conn.SQLColumn("{{ $table.Name }}", "{{ $subcolumn.Name }}")
+				scope.scope.currentAlias = ""
+				scope.scope.isDistinct = false
+				return scope.scope
+			}
+
 			type mapper{{ $table.Name }}{{ $subcolumn.Name }} struct {
 				Mapper *mapper{{ $table.Name }}
 			}
@@ -992,7 +1018,6 @@ func (scope scope{{ .Name }}) Or(scopes ...{{ .Name }}Scope) {{ .Name }}Scope {
 					{{ template "time_mapper" $subcolumn }}
 				}
 			{{ end }}
-
 		{{ end }}
 	{{ end }}
 {{ end }}
