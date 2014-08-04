@@ -980,6 +980,7 @@ func (scope scope{{ .Name }}) Or(scopes ...{{ .Name }}Scope) {{ .Name }}Scope {
 			scope scope{{ $table.Name }}
 		}
 		type {{ $table.Name }}{{ $column.Subrecord.Name }}Scope interface {
+			Include() {{ $table.Name }}Scope
 			{{ range $subcolumn := $column.Subcolumns }}
 			  {{ $subcolumn.Name }}() {{ $table.Name }}Scope
 			{{ end }}
@@ -987,6 +988,11 @@ func (scope scope{{ .Name }}) Or(scopes ...{{ .Name }}Scope) {{ .Name }}Scope {
 
 		func (scope scope{{ $table.Name }}) {{ $column.Subrecord.Name }}() {{ $table.Name }}{{ $column.Subrecord.Name }}Scope {
 			return scope{{ $table.Name }}{{ $column.Subrecord.Name }}{scope}
+		}
+
+		func (scope scope{{ $table.Name }}{{ $column.Subrecord.Name }}) Include() {{ $table.Name }}Scope {
+			scope.scope.includes = append(scope.scope.includes, "{{ $column.Subrecord.Name }}")
+			return scope.scope
 		}
 	
 		{{ range $subcolumn := $column.Subcolumns }}

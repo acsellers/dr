@@ -2,6 +2,7 @@ package forum
 
 import (
 	"fmt"
+	"log"
 	"testing"
 
 	"github.com/acsellers/doc/migrate"
@@ -290,6 +291,19 @@ func TestSubrecord(t *testing.T) {
 	cnt := c.Forum.ForumBlather().Rules().Eq("No Rules").Count()
 	if cnt != 1 {
 		t.Fatal("Count of subrecord fail")
+	}
+
+	if f.Rules != "No Rules" {
+		fmt.Println(f)
+	}
+
+	f, err = c.Forum.ForumBlather().Include().Name().Eq("Lounge").Retrieve()
+	if err != nil {
+		t.Fatal("Subrecord retrive error:", err)
+	}
+	if f.Rules != "No Rules" {
+		log.Println("Subrecord Retrieve Object:", f)
+		log.Fatal("Cound no locate retrieved subrecord, expected '", "No Rules", "', found '", f.Rules, "'.")
 	}
 }
 
