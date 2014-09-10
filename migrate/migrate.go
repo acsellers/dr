@@ -4,20 +4,10 @@ package migrate
 
 import (
 	"database/sql"
-	"flag"
+	"fmt"
 
 	"github.com/acsellers/doc/schema"
 )
-
-var PareFields = flag.Bool(
-	"pare",
-	false,
-	"Remove tables and fields not mentioned in the schema",
-)
-
-func init() {
-	flag.Parse()
-}
 
 type System int
 
@@ -56,15 +46,14 @@ func (d *Database) Migrate() error {
 	}
 
 	for _, table := range d.NewTables {
-		d.CreateTable(table)
+		err = d.CreateTable(table)
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, table := range d.ModifiedTables {
 		d.ModifyTable(table)
-	}
-
-	if *PareFields {
-		return d.PareFields()
 	}
 
 	return nil
@@ -74,11 +63,12 @@ func (d *Database) PareFields() error {
 	return nil
 }
 
-func (d *Database) CreateTable(table *schema.Table) {
+func (d *Database) CreateTable(table *schema.Table) error {
 	switch d.DBMS {
 	case Generic, Sqlite:
-		(&GenericDB{d.DB, d.Translator}).CreateTable(table)
+		return (&GenericDB{d.DB, d.Translator}).CreateTable(table)
 	}
+	return fmt.Errorf("Could not locate database for %v", d.DBMS)
 }
 
 func (d *Database) ModifyTable(table *schema.Table) {
