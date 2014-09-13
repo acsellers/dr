@@ -914,8 +914,11 @@ func (scope scope{{ .Name }}) Delete() error {
 		return err
 	} else {
 		sql := fmt.Sprintf("DELETE FROM %s WHERE %s",scope.table, cs)
-		_, err := scope.conn.Exec(sql, cv)
-		return err
+		_, err := scope.conn.Exec(sql, cv...)
+		if err != nil {
+			return fmt.Errorf("Encountered error: %v\nSQL: %s %v", err, sql, cv)
+		}
+		return nil
 	}
 }
 func (scope scope{{ .Name }}) condSQL() (string, []interface{}) {
