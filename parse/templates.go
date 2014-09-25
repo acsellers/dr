@@ -332,11 +332,11 @@ func (s *scope{{ .Name }}) query() (string, []interface{}) {
 	}
 
 	if s.limit != nil {
-		sql = append(sql, "LIMIT", fmt.Sprint("%v", *s.limit))
+		sql = append(sql, "LIMIT", fmt.Sprintf("%v", *s.limit))
 	}
 
 	if s.offset != nil {
-		sql = append(sql, "OFFSET", fmt.Sprint("%!v(MISSING)", *s.offset))
+		sql = append(sql, "OFFSET", fmt.Sprintf("%v", *s.offset))
 	}
 
 	return strings.Join(sql, " "), vals
@@ -702,6 +702,9 @@ func (scope scope{{ .Name }}) Retrieve() ({{ .Name }}, error) {
 	ss, vv := scope.ToSQL()
 	row := scope.conn.QueryRow(ss, vv...)
 	err := row.Scan(m.Scanners...)
+	if err != nil {
+		err = fmt.Errorf("SQL: %s\n%s", ss, err.Error())
+	}
 	return *val, err
 
 }
@@ -713,6 +716,7 @@ func (scope scope{{ .Name }}) RetrieveAll() ([]{{ .Name }}, error) {
 	ss, vv := scope.ToSQL()
 	rows, err := scope.conn.Query(ss, vv...)
 	if err != nil {
+		err = fmt.Errorf("SQL: %s\n%s", ss, err.Error())
 		return []{{ .Name }}{}, err
 	}
 	defer rows.Close()
