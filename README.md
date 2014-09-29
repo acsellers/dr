@@ -1,4 +1,4 @@
-Doc: ORM via Code Generation
+Doctor: ORM via Code Generation
 ============================
 
 In Go, there are several ways to get the expressiveness of generic operations:
@@ -12,9 +12,9 @@ that allows developers to create and maintain code to talk to SQL databases.
 Description
 -----------
 
-Doc reads in files with the extension gp (Go Prototype) then writes out multiple
+Doctor reads in files with the extension gp (Go Prototype) then writes out multiple
 Go files that implement Object Relational Mapper functionality. You define structs,
-but with the special keywords table, mixin, and subrecord. Doc will use those keywords
+but with the special keywords table, mixin, and subrecord. Doctor will use those keywords
 to generate code for your library. Table's are the top-level construct, mixins have 
 their fields and functions duplicated for each table they are used in. Finally, 
 subrecords have their fields added to each table they're used in, but share the
@@ -24,7 +24,7 @@ same struct definition.
 Current Status
 --------------
 
-Doc is currently about the same level of features as my previous attempt, and
+Doctor is currently about the same level of features as my previous attempt, and
 starting to eclipse it. Current schedule looks like:
 
 * Complete migrate for sqlite
@@ -40,7 +40,6 @@ starting to eclipse it. Current schedule looks like:
 * Row locking
 * Documentation site + godoc
 * More tests?
-* Rename to doctor or Dr. ?
 
 
 Future Features
@@ -58,7 +57,7 @@ a (nearly) zero-downtime version.
 Things to Complain About
 ------------------------
 
-* Doc generates a lot of code currently, on the order of 110x the input.
+* Doctor generates a lot of code currently, on the order of 110x the input.
 
 * Advanced SQL features aren't well supported.
 

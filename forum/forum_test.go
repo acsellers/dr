@@ -5,7 +5,7 @@ import (
 	"log"
 	"testing"
 
-	"github.com/acsellers/doc/migrate"
+	"github.com/acsellers/dr/migrate"
 	_ "github.com/mattn/go-sqlite3"
 )
 

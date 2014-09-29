@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/acsellers/doc/forum"
-	"github.com/acsellers/doc/migrate"
+	"github.com/acsellers/dr/forum"
+	"github.com/acsellers/dr/migrate"
 	_ "github.com/mattn/go-sqlite3"
 )
 

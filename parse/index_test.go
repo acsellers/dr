@@ -3,7 +3,7 @@ package parse
 import "testing"
 
 func TestIndexSingle(t *testing.T) {
-	expected := `var _ = doc.RegisterIndexes(
+	expected := `var _ = dr.RegisterIndexes(
 User{},
 []string{"Name"},
 )`
@@ -17,7 +17,7 @@ User{},
 }
 
 func TestIndexTwoSingle(t *testing.T) {
-	expected := `var _ = doc.RegisterIndexes(
+	expected := `var _ = dr.RegisterIndexes(
 User{},
 []string{"Name"},
 []string{"Password"},
@@ -32,7 +32,7 @@ User{},
 }
 
 func TestIndexMulti(t *testing.T) {
-	expected := `var _ = doc.RegisterIndexes(
+	expected := `var _ = dr.RegisterIndexes(
 User{},
 []string{"Name", "Login"},
 )`
@@ -46,7 +46,7 @@ User{},
 }
 
 func TestIndexTwoMulti(t *testing.T) {
-	expected := `var _ = doc.RegisterIndexes(
+	expected := `var _ = dr.RegisterIndexes(
 User{},
 []string{"Name", "Login"},
 []string{"Login", "APIKey"},
@@ -61,7 +61,7 @@ User{},
 }
 
 func TestIndexComment(t *testing.T) {
-	expected := `var _ = doc.RegisterIndexes(
+	expected := `var _ = dr.RegisterIndexes(
 // Do not delete, important for reports
 User{},
 []string{"Name"},

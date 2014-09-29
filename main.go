@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/acsellers/doc/parse"
+	"github.com/acsellers/dr/parse"
 )
 
 func main() {

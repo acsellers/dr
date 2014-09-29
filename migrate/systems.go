@@ -6,13 +6,15 @@ import (
 	"log"
 	"strings"
 
-	"github.com/acsellers/doc/schema"
+	"github.com/acsellers/dr/schema"
 )
 
 type GenericDB struct {
-	DB      *sql.DB
-	Convert Translator
-	Log     *log.Logger
+	DB                *sql.DB
+	Convert           Translator
+	Log               *log.Logger
+	PrimaryKeyDef     string
+	LengthableColumns map[string]bool
 }
 
 func (g *GenericDB) HasTable(table *schema.Table) (bool, error) {
@@ -33,7 +35,7 @@ func (g *GenericDB) CreateTable(table *schema.Table) error {
 			defs = append(
 				defs,
 				fmt.Sprintf(
-					"%s INTEGER PRIMARY KEY ASC",
+					g.PrimaryKeyDef,
 					g.Convert.SQLColumn(table.Name, column.Name),
 				),
 			)
@@ -43,10 +45,9 @@ func (g *GenericDB) CreateTable(table *schema.Table) error {
 				g.Convert.SQLColumn(table.Name, column.Name),
 				strings.ToUpper(column.Type),
 			)
-			if column.Length != 0 {
+			if column.Length != 0 && g.LengthableColumns[column.Type] {
 				coldef += fmt.Sprintf(
-					"(%d)",
-					column.Length,
+					"(%d)", column.Length,
 				)
 			}
 			defs = append(defs, coldef)
@@ -80,7 +81,29 @@ func (g *GenericDB) CreateTable(table *schema.Table) error {
 	fmt.Println(sql)
 
 	_, err := g.DB.Exec(sql, vals...)
-	return err
+	if err != nil {
+		return fmt.Errorf("Error Creating Table\nSQL: %s\nError: %s", sql, err.Error())
+	}
+	return nil
+}
+
+func (g *GenericDB) UpdateTable(table *schema.Table) error {
+	for _, col := range table.Columns {
+		exists, err := g.HasColumn(table, &col)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			g.Log.Println("Adding New Column", col.Name, "to", table.Name)
+			err = g.CreateColumn(table, &col)
+			if err != nil {
+				g.Log.Println("Error when adding column", err)
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func (g *GenericDB) RemoveTable(table *schema.Table) error {
@@ -105,7 +128,7 @@ func (g *GenericDB) CreateColumn(table *schema.Table, col *schema.Column) error 
 		g.Convert.SQLColumn(table.Name, col.Name),
 		strings.ToUpper(col.Type),
 	)
-	if col.Length != 0 {
+	if col.Length != 0 && g.LengthableColumns[col.Type] {
 		coldef += fmt.Sprintf(
 			"(%d)",
 			col.Length,
@@ -129,19 +152,27 @@ func (g *GenericDB) ModifyColumn(table *schema.Table, col *schema.Column) error 
 	return nil
 }
 
-func (g *GenericDB) UpdateTable(table *schema.Table) error {
-	return nil
-}
-
 // SqliteDB is the standard for the GenericDB, so it has no overridden functions
 type SqliteDB struct {
 	GenericDB
 }
 
+func (s *SqliteDB) CreateTable(table *schema.Table) error {
+	s.GenericDB.PrimaryKeyDef = "%s SERIAL PRIMARY KEY"
+	s.GenericDB.LengthableColumns = s.LengthableColumns()
+	return s.GenericDB.CreateTable(table)
+}
+
+func (s *SqliteDB) UpdateTable(table *schema.Table) error {
+	s.GenericDB.PrimaryKeyDef = "%s SERIAL PRIMARY KEY"
+	s.GenericDB.LengthableColumns = s.LengthableColumns()
+	return s.GenericDB.UpdateTable(table)
+}
+
 func (s *SqliteDB) HasTable(table *schema.Table) (bool, error) {
 	var cnt int64
 	err := s.DB.QueryRow(
-		`SELECT COUNT(name) FROM sqlite_master WHERE type='table' AND name=?`,
+		`SELECT COUNT(name) FROM sqlite_master WHERE type='table' AND name=$1`,
 		s.Convert.SQLTable(table.Name),
 	).Scan(&cnt)
 	if err != nil {
@@ -182,27 +213,15 @@ func (s *SqliteDB) HasColumn(table *schema.Table, col *schema.Column) (bool, err
 	return false, rows.Err()
 }
 
-func (s *SqliteDB) UpdateTable(table *schema.Table) error {
-	for _, col := range table.Columns {
-		exists, err := s.HasColumn(table, &col)
-		if err != nil {
-			return err
-		}
-		if !exists {
-			s.Log.Println("Adding New Column", col.Name, "to", table.Name)
-			err = s.CreateColumn(table, &col)
-			if err != nil {
-				s.Log.Println("Error when adding column", err)
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
 func (*SqliteDB) String() string {
 	return "sqlite"
+}
+
+func (*SqliteDB) LengthableColumns(table *schema.Table) map[string]bool {
+	return map[string]bool{
+		"varchar": true,
+		"integer": true,
+	}
 }
 
 // PostgresDB is pretty much the same as sqlite, except it can modify columns
@@ -214,6 +233,49 @@ func (*PostgresDB) String() string {
 	return "Postgres Master Race"
 }
 
+func (p PostgresDB) HasTable(table *schema.Table) (bool, error) {
+	var cnt int64
+	err := p.DB.QueryRow(
+		`SELECT COUNT(*) FROM information_schema.tables WHERE table_type = 'BASE TABLE' AND table_schema = 'public' AND table_name = $1`,
+		p.Convert.SQLTable(table.Name),
+	).Scan(&cnt)
+	if err != nil {
+		return false, err
+	}
+	return cnt == 1, nil
+}
+
+func (p *PostgresDB) HasColumn(table *schema.Table, col *schema.Column) (bool, error) {
+	var cnt int64
+	err := p.DB.QueryRow(
+		`SELECT COUNT(*) FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,
+		p.Convert.SQLTable(table.Name),
+		p.Convert.SQLColumn(table.Name, col.Name),
+	).Scan(&cnt)
+	if err != nil {
+		return false, err
+	}
+	return cnt == 1, nil
+}
+
+func (p *PostgresDB) CreateTable(table *schema.Table) error {
+	p.GenericDB.PrimaryKeyDef = "%s SERIAL PRIMARY KEY"
+	p.GenericDB.LengthableColumns = p.LengthableColumns()
+	return p.GenericDB.CreateTable(table)
+}
+
+func (p *PostgresDB) UpdateTable(table *schema.Table) error {
+	p.GenericDB.PrimaryKeyDef = "%s SERIAL PRIMARY KEY"
+	p.GenericDB.LengthableColumns = p.LengthableColumns()
+	return p.GenericDB.UpdateTable(table)
+}
+
+func (p *PostgresDB) LengthableColumns(table *schema.Table) map[string]bool {
+	return map[string]bool{
+		"varchar": true,
+	}
+}
+
 // MysqlDB is ugh
 type MysqlDB struct {
 	GenericDB
@@ -221,4 +283,23 @@ type MysqlDB struct {
 
 func (*MysqlDB) String() string {
 	return "myDerpDB"
+}
+
+func (*MysqlDB) LengthableColumns(table *schema.Table) map[string]bool {
+	return map[string]bool{
+		"varchar": true,
+		"integer": true,
+	}
+}
+
+func (m *MysqlDB) CreateTable(table *schema.Table) error {
+	m.GenericDB.PrimaryKeyDef = "%s SERIAL PRIMARY KEY"
+	m.GenericDB.LengthableColumns = m.LengthableColumns()
+	return m.GenericDB.CreateTable(table)
+}
+
+func (m *MysqlDB) UpdateTable(table *schema.Table) error {
+	m.GenericDB.PrimaryKeyDef = "%s SERIAL PRIMARY KEY"
+	m.GenericDB.LengthableColumns = m.LengthableColumns()
+	return m.GenericDB.UpdateTable(table)
 }

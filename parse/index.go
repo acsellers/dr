@@ -15,7 +15,7 @@ var (
 )
 
 func ParseIndexes(lines []string) (string, error) {
-	results := []string{strings.Replace(lines[0], "index", "var _ = doc.RegisterIndexes", 1)}
+	results := []string{strings.Replace(lines[0], "index", "var _ = dr.RegisterIndexes", 1)}
 	lines = lines[1:]
 
 	started := false

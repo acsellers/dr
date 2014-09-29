@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 
-	"github.com/acsellers/doc/schema"
+	"github.com/acsellers/dr/schema"
 )
 
 type System int
@@ -126,6 +126,10 @@ func (d *Database) PareFields() error {
 func (d *Database) SetAlterer() {
 	switch d.DBMS {
 	case Sqlite:
-		d.Alterer = &SqliteDB{GenericDB{d.DB, d.Translator, d.Log}}
+		d.Alterer = &SqliteDB{GenericDB{DB: d.DB, Convert: d.Translator, Log: d.Log}}
+	case Postgres:
+		d.Alterer = &PostgresDB{GenericDB{DB: d.DB, Convert: d.Translator, Log: d.Log}}
+	case MySQL:
+		d.Alterer = &MysqlDB{GenericDB{DB: d.DB, Convert: d.Translator, Log: d.Log}}
 	}
 }

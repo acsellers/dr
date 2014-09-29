@@ -1,27 +1,27 @@
-Doc ORM Builder
+Doctor ORM Builder
 
 Andrew Sellers
 GradesFirst
 
-* Doc ORM Basics
+* Doctor ORM Basics
 
 - Parses tables as ast.StructType
 - Rewrites ast's as necessary to complete ast's
 - Uses go.tools/imports to format code
 - Generates code according to template for schema, scopes, AR-ish functions
 
-* Using Doc
+* Using Doctor
 
 - Developers write code in almost Go in gp files
-- Then run doc command in the package folder
-- Doc parses in the gp files, then outputs a bunch of Go files
+- Then run dr command in the package folder
+- Doctor parses in the gp files, then outputs a bunch of Go files
 - Each .gp file gets converted into a .go file
-- Doc then generates <package name>_def.go and <package name>_schema.go file
+- Doctor then generates <package name>_def.go and <package name>_schema.go file
 
 * Schema
 
-- Doc reads through structs, finds simple fields, then adds them to the schema
-- Doc then reads through fields again, and locates related fields
+- Doctor reads through structs, finds simple fields, then adds them to the schema
+- Doctor then reads through fields again, and locates related fields
 - Then outputs each of the 4 current relationships
 - ManyRelationships: HasMany & ChildOf
 - OneRelationship: HasOne & BelongsTo

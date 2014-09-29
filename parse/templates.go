@@ -207,6 +207,7 @@ type {{ .Name }}Scope interface {
 type Conn struct {
 	*sql.DB
 	AppConfig
+	reformat bool
 	{{ range .Tables }}
 		{{ .Name }} {{ .Name }}Scope
 	{{ end }}
@@ -214,6 +215,9 @@ type Conn struct {
 
 func Open(driverName, dataSourceName string) (*Conn, error) {
 	c := &Conn{}
+	if driverName == "postgres" {
+		c.reformat = true
+	}
 	var err error
 	c.DB, err = sql.Open(driverName, dataSourceName)
 	if err != nil {
@@ -224,6 +228,34 @@ func Open(driverName, dataSourceName string) (*Conn, error) {
 	{{ end }}
 	return c, nil
 }
+
+func (c *Conn) Exec(query string, args ...interface{}) (sql.Result, error) {
+	return c.DB.Exec(c.FormatQuery(query), args...)
+}
+
+func (c *Conn) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	return c.DB.Query(c.FormatQuery(query), args...)
+}
+
+func (c *Conn) QueryRow(query string, args ...interface{}) *sql.Row {
+	return c.DB.QueryRow(c.FormatQuery(query), args...)
+}
+
+func (c *Conn) FormatQuery(query string) string {
+	if !c.reformat {
+		return query
+	}
+
+	parts := strings.Split(query, "?")
+	var newQuery []string
+	for i, part := range parts[:len(parts)-1] {
+		newQuery = append(newQuery, fmt.Sprintf("%s$%d", part, i+1))
+	}
+	newQuery = append(newQuery, parts[len(parts)-1])
+
+	return strings.Join(newQuery, "")
+}
+
 func (c *Conn) Close() error {
 	return c.DB.Close()
 }
