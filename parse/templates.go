@@ -208,6 +208,7 @@ type Conn struct {
 	*sql.DB
 	AppConfig
 	reformat bool
+	returning bool
 	{{ range .Tables }}
 		{{ .Name }} {{ .Name }}Scope
 	{{ end }}
@@ -217,6 +218,7 @@ func Open(driverName, dataSourceName string) (*Conn, error) {
 	c := &Conn{}
 	if driverName == "postgres" {
 		c.reformat = true
+		c.returning = true
 	}
 	var err error
 	c.DB, err = sql.Open(driverName, dataSourceName)

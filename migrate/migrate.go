@@ -49,6 +49,27 @@ type Database struct {
 	Log            *log.Logger
 }
 
+func (d *Database) ForeignKeysSatisfied(table *schema.Table) bool {
+	if len(table.ChildOf) == 0 && len(table.BelongsTo) == 0 {
+		return true
+	}
+
+	for _, child := range table.ChildOf {
+		ok, _ := d.HasTable(child.Parent)
+		if !ok && child.Parent.Name != table.Name {
+			return false
+		}
+	}
+	for _, belong := range table.BelongsTo {
+		ok, _ := d.HasTable(belong.Parent)
+		if !ok && belong.Parent.Name != table.Name {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (d *Database) UpToDate() (bool, error) {
 TableIter:
 	for _, table := range d.Schema.Tables {
@@ -103,10 +124,22 @@ func (d *Database) Migrate() error {
 	}
 
 	d.Log.Printf("Creating New Tables (%d)\n", len(d.NewTables))
+	wait := []*schema.Table{}
 	for _, table := range d.NewTables {
-		err = d.CreateTable(table)
-		if err != nil {
-			return err
+		if d.ForeignKeysSatisfied(table) {
+			err = d.CreateTable(table)
+			if err != nil {
+				return err
+			}
+		} else {
+			wait = append(wait, table)
+		}
+	}
+
+	for len(wait) > 0 {
+		if d.ForeignKeysSatisfied(wait[0]) {
+		} else {
+			wait = append(wait[1:], wait[0])
 		}
 	}
 

@@ -147,14 +147,25 @@ func (t *{{ $table.Name }}) create(c *Conn) error {
 		strings.Join(cols, ", "),
 		questions(len(cols)),
 	)
-	result, err := c.Exec(sql, vals...)
-	if err != nil {
+	if c.returning {
+		sql += " RETURNING " + c.SQLColumn("{{ $table.Name }}", "{{ $table.PrimaryKeyColumn.Name }}")
+		var pk {{ $table.PrimaryKeyColumn.GoType }}
+		row := c.QueryRow(sql, vals...)
+		err := row.Scan(&pk)
+		if err == nil {
+			t.{{ $table.PrimaryKeyColumn.Name }} = pk
+		}
 		return err
-	}
-	
-	id, err := result.LastInsertId()
-	if err == nil {
-		t.{{ $table.PrimaryKeyColumn.Name }} = {{ $table.PrimaryKeyColumn.GoType }}(id)
+	} else {
+		result, err := c.Exec(sql, vals...)
+		if err != nil {
+			return err
+		}
+		
+		id, err := result.LastInsertId()
+		if err == nil {
+			t.{{ $table.PrimaryKeyColumn.Name }} = {{ $table.PrimaryKeyColumn.GoType }}(id)
+		}
 	}
 
 	return nil
