@@ -217,7 +217,7 @@ func (*SqliteDB) String() string {
 	return "sqlite"
 }
 
-func (*SqliteDB) LengthableColumns(table *schema.Table) map[string]bool {
+func (*SqliteDB) LengthableColumns() map[string]bool {
 	return map[string]bool{
 		"varchar": true,
 		"integer": true,
@@ -270,7 +270,7 @@ func (p *PostgresDB) UpdateTable(table *schema.Table) error {
 	return p.GenericDB.UpdateTable(table)
 }
 
-func (p *PostgresDB) LengthableColumns(table *schema.Table) map[string]bool {
+func (p *PostgresDB) LengthableColumns() map[string]bool {
 	return map[string]bool{
 		"varchar": true,
 	}
@@ -285,7 +285,7 @@ func (*MysqlDB) String() string {
 	return "myDerpDB"
 }
 
-func (*MysqlDB) LengthableColumns(table *schema.Table) map[string]bool {
+func (*MysqlDB) LengthableColumns() map[string]bool {
 	return map[string]bool{
 		"varchar": true,
 		"integer": true,
