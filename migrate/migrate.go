@@ -36,6 +36,11 @@ type Alterer interface {
 	ModifyColumn(*schema.Table, *schema.Column) error
 	RenameColumn(*schema.Table, *schema.Column) error
 	RemoveColumn(*schema.Table, *schema.Column) error
+
+	HasIndex(*schema.Table, schema.Index) (bool, error)
+	getIndexName(*schema.Table, schema.Index) (string, error)
+	CreateIndex(*schema.Table, schema.Index) error
+	RemoveIndex(*schema.Table, schema.Index) error
 }
 
 type Database struct {

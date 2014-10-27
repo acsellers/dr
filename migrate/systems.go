@@ -17,6 +17,29 @@ type GenericDB struct {
 	LengthableColumns map[string]bool
 }
 
+func (g *GenericDB) HasIndex(table *schema.Table, index schema.Index) (bool, error) {
+	return false, nil
+}
+func (g *GenericDB) CreateIndex(table *schema.Table, index schema.Index) error {
+	return nil
+}
+
+func (*GenericDB) getIndexName(*schema.Table, schema.Index) (string, error) {
+	return "", fmt.Errorf("Must use RDBMS specific version for this feature")
+}
+
+func (g *GenericDB) RemoveIndex(table *schema.Table, index schema.Index) error {
+	name, err := g.getIndexName(table, index)
+	if err != nil {
+		return err
+	}
+	if name == "" {
+		return nil
+	}
+	_, err = g.DB.Exec("DROP INDEX " + name)
+	return err
+}
+
 func (g *GenericDB) HasTable(table *schema.Table) (bool, error) {
 	return false, fmt.Errorf("Need a RDBMS-specific for schema check functionality")
 }
@@ -83,6 +106,16 @@ func (g *GenericDB) CreateTable(table *schema.Table) error {
 	_, err := g.DB.Exec(sql, vals...)
 	if err != nil {
 		return fmt.Errorf("Error Creating Table\nSQL: %s\nError: %s", sql, err.Error())
+	}
+
+	for _, index := range table.Index {
+		ok, err := g.HasIndex(table, index)
+		if err != nil {
+			return fmt.Errorf("Error checking index: %v", err)
+		}
+		if !ok {
+			g.CreateIndex(table, index)
+		}
 	}
 	return nil
 }
@@ -204,13 +237,101 @@ func (s *SqliteDB) HasColumn(table *schema.Table, col *schema.Column) (bool, err
 			&tinfo.PrimaryKey,
 		)
 		if err != nil {
+			rows.Close()
 			return false, err
 		}
 		if tinfo.Name == s.Convert.SQLColumn(table.Name, col.Name) {
+			rows.Close()
 			return true, nil
 		}
 	}
 	return false, rows.Err()
+}
+
+func (s *SqliteDB) HasIndex(table *schema.Table, index schema.Index) (bool, error) {
+	name, err := s.getIndexName(table, index)
+	if err != nil {
+		return false, err
+	}
+	if name == "" {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (s *SqliteDB) getIndexName(table *schema.Table, index schema.Index) (string, error) {
+	rows, err := s.DB.Query(fmt.Sprintf("PRAGMA index_list(%s)", s.Convert.SQLTable(table.Name)))
+	if err != nil {
+		return "", err
+	}
+	indexes := []string{}
+	var temp1 interface{}
+	var indexName string
+	var unique bool
+	for rows.Next() {
+		err = rows.Scan(&temp1, &indexName, &unique)
+		if err != nil {
+			return "", fmt.Errorf("Enumerate Sqlite indexes: %v", err)
+		}
+		if index.Unique == unique {
+			indexes = append(indexes, indexName)
+		}
+	}
+	rows.Close()
+
+	for _, dbindex := range indexes {
+		rows, err := s.DB.Query(fmt.Sprintf("PRAGMA index_info(%s)", dbindex))
+		if err != nil {
+			return "", err
+		}
+		columns := []string{}
+		var temp1, temp2 interface{}
+		var columnName string
+		for rows.Next() {
+			err = rows.Scan(&temp1, &temp2, &columnName)
+			if err != nil {
+				return "", fmt.Errorf("Interrogate Sqlite index: %v", err)
+			}
+			columns = append(columns, columnName)
+		}
+		rows.Close()
+		if len(columns) != len(index.Columns) {
+			continue
+		}
+		for i, column := range columns {
+			if column != s.Convert.SQLColumn(table.Name, index.Columns[i]) {
+				continue
+			}
+		}
+		return dbindex, nil
+	}
+
+	return "", nil
+}
+
+func (s *SqliteDB) CreateIndex(table *schema.Table, index schema.Index) error {
+	unique := ""
+	if index.Unique {
+		unique = "UNIQUE"
+	}
+
+	indexName := strings.Join(append([]string{"idx", s.Convert.SQLTable(table.Name)}, index.Columns...), "_")
+
+	columns := make([]string, len(index.Columns))
+	for i, col := range index.Columns {
+		columns[i] = s.Convert.SQLColumn(table.Name, col)
+	}
+
+	sql := fmt.Sprintf(
+		"CREATE %s INDEX %s ON %s (%s)",
+		unique,
+		indexName,
+		s.Convert.SQLTable(table.Name),
+		strings.Join(columns, ", "),
+	)
+	_, err := s.DB.Exec(sql)
+
+	return err
 }
 
 func (*SqliteDB) String() string {
@@ -270,6 +391,56 @@ func (p *PostgresDB) UpdateTable(table *schema.Table) error {
 	return p.GenericDB.UpdateTable(table)
 }
 
+func (p *PostgresDB) HasIndex(table *schema.Table, index schema.Index) (bool, error) {
+	name, err := p.getIndexName(table, index)
+	return name != "", err
+}
+func (p *PostgresDB) getIndexName(table *schema.Table, index schema.Index) (string, error) {
+	sql := `select i.relname as index_name, array_to_string(array_agg(a.attname), ',') as column_names
+from pg_class t, pg_class i, pg_index ix, pg_attribute a
+where t.oid = ix.indrelid and i.oid = ix.indexrelid
+and a.attrelid = t.oid and a.attnum = ANY(ix.indkey)
+and t.relkind = 'r' and t.relname like '$1'
+group by t.relname, i.relname
+order by t.relname, i.relname`
+	rows, err := p.DB.Query(sql, p.Convert.SQLTable(table.Name))
+	if err != nil {
+		return "", err
+	}
+	lookColumns := strings.Join(index.Columns, ",")
+	var indexName, columns string
+	for rows.Next() {
+		err = rows.Scan(&indexName, &columns)
+		if err != nil {
+			rows.Close()
+			return "", err
+		}
+		if columns == lookColumns {
+			rows.Close()
+			return indexName, nil
+		}
+	}
+	rows.Close()
+	return "", nil
+}
+func (p *PostgresDB) CreateIndex(table *schema.Table, index schema.Index) error {
+	indexName := strings.Join(append([]string{"idx", p.Convert.SQLTable(table.Name)}, index.Columns...), "_")
+
+	columns := make([]string, len(index.Columns))
+	for i, col := range index.Columns {
+		columns[i] = p.Convert.SQLColumn(table.Name, col)
+	}
+
+	sql := fmt.Sprintf(
+		"CREATE INDEX %s ON %s (%s)",
+		indexName,
+		p.Convert.SQLTable(table.Name),
+		strings.Join(columns, ", "),
+	)
+	_, err := p.DB.Exec(sql)
+
+	return err
+}
 func (p *PostgresDB) LengthableColumns() map[string]bool {
 	return map[string]bool{
 		"varchar": true,
@@ -302,4 +473,26 @@ func (m *MysqlDB) UpdateTable(table *schema.Table) error {
 	m.GenericDB.PrimaryKeyDef = "%s SERIAL PRIMARY KEY"
 	m.GenericDB.LengthableColumns = m.LengthableColumns()
 	return m.GenericDB.UpdateTable(table)
+}
+
+func (m *MysqlDB) getIndexName(table *schema.Table, index schema.Index) (string, error) {
+	sql := `SELECT INDEX_NAME, GROUP_CONCAT(DISTINCT COLUMN_NAME ORDER BY SEQ_IN_INDEX) FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_NAME = ? AND INDEX_NAME <> 'PRIMARY' GROUP BY INDEX_NAME`
+	rows, err := m.DB.Query(sql, m.Convert.SQLTable(table.Name))
+	if err != nil {
+		return "", err
+	}
+	search := strings.Join(index.Columns, ",")
+	var indexName, columns string
+	for rows.Next() {
+		err = rows.Scan(&indexName, &columns)
+		if err != nil {
+			return "", err
+		}
+		if columns == search {
+			rows.Close()
+			return indexName, nil
+		}
+	}
+	rows.Close()
+	return "", nil
 }

@@ -22,6 +22,11 @@ type Table struct {
 	// Through's will come later
 }
 
+func (t *Table) AddIndex(i ...Index) *Table {
+	t.Index = append(t.Index, i...)
+	return t
+}
+
 func (t *Table) FindColumn(name string) *Column {
 	for _, col := range t.Columns {
 		if col.Name == name {
@@ -45,7 +50,7 @@ type Column struct {
 
 type Index struct {
 	Columns []string
-	Type    string
+	Unique  bool
 }
 
 type View struct {
