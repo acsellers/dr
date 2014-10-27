@@ -108,6 +108,16 @@ var genTemplate = `{{ define "int_mapper" }}
 		{{ else }}
 			(*m.Mapper.Current).{{ .Name }} = tf
 		{{ end }}
+	} else if i, ok := v.([]byte); ok {
+		f, err := strconv.ParseFloat(string(i), 64)
+		if err != nil {
+			return err
+		}
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &f
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = f
+		{{ end }}
 	}	else {
 		return fmt.Errorf("Value not recognized as float64, received %v", v)
 	}
@@ -131,6 +141,17 @@ var genTemplate = `{{ define "int_mapper" }}
 			(*m.Mapper.Current).{{ .Name }} = &tf
 		{{ else }}
 			(*m.Mapper.Current).{{ .Name }} = tf
+		{{ end }}
+	} else if i, ok := v.([]byte); ok {
+		f, err := strconv.ParseFloat(string(i), 32)
+		if err != nil {
+			return err
+		}
+		sf := float32(f)
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &sf
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = sf
 		{{ end }}
 	}	else {
 		return fmt.Errorf("Value not recognized as float32, received %v", v)
@@ -159,7 +180,7 @@ type Scope interface {
 	scopeName() string
 	Conn() *Conn
 	SetConn(*Conn) Scope
-	joinOn(Scope) (string, bool)
+	joinOn(string, Scope) (string, bool)
 	joinable() string
 	joinTable() string
 }
@@ -340,241 +361,73 @@ func (c *defaultConfig) SQLColumn(table, column string) string {
 
 {{ range $table := .Tables }}
 type scope{{ .Name }} struct {
-	conn                        *Conn
-	table                       string
-	columns                     []string
-	order                       []string
-	joins                       []string
-	joinedScopes                []Scope
-	includes                    []string
-	conditions                  []condition
-	having                      []string
-	havevals                    []interface{}
-	groupBy                     []string
-	currentColumn, currentAlias string
-	isDistinct                  bool
-	limit, offset               *int64
-	updates                     map[string]interface{}
+	internalScope
 }
 
 func new{{ .Name }}Scope(c *Conn) *scope{{ .Name }} {
 	return &scope{{ .Name }}{
-		conn:          c,
-		table:         c.SQLTable("{{ .Name }}"),
-		currentColumn: c.SQLTable("{{ .Name }}") + "." + c.SQLColumn("{{ .Name }}", "{{ .PrimaryKeyColumn.Name }}"),
+		internalScope{
+			conn:          c,
+			table:         c.SQLTable("{{ .Name }}"),
+			currentColumn: c.SQLTable("{{ .Name }}") + "." + c.SQLColumn("{{ .Name }}", "{{ .PrimaryKeyColumn.Name }}"),
+		},
 	}
 }
 
-func (scope scope{{ .Name }}) Conn() *Conn {
-	return scope.conn
-}
 func (scope scope{{ .Name }}) SetConn(conn *Conn) Scope {
 	scope.conn = conn
 	return scope
 }
+
 func (scope{{ .Name }}) scopeName() string {
 	return "{{ .Name }}"
 }
 
-func (s *scope{{ .Name }}) query() (string, []interface{}) {
-	// SELECT (columns) FROM (table) (joins) WHERE (conditions)
-	// GROUP BY (grouping) HAVING (havings)
-	// ORDER BY (orderings) LIMIT (limit) OFFSET (offset)
-	sql := []string{}
-	vals := []interface{}{}
-	if len(s.columns) == 0 {
-		sql = append(sql, "SELECT", s.table+".*")
-	} else {
-		sql = append(sql, "SELECT", strings.Join(s.columns, ", "))
-	}
-	// if s.source == nil { // subquery
-	//
-	// } else {
-	sql = append(sql, "FROM", s.table)
-	// }
-	sql = append(sql, s.joins...)
-
-	if len(s.conditions) > 0 {
-		cs, cv := s.conditionSQL()
-		sql = append(sql, "WHERE", cs)
-		vals = append(vals, cv...)
-	}
-
-	// if len(s.groupings) > 0 {
-	//   sql = append(sql , "GROUP BY")
-	//   for _, grouping := range s.groupings {
-	//     sql = append(sql, grouping.ToSQL()
-	//   }
-	// }
-
-	if len(s.having) > 0 {
-		sql = append(sql, "HAVING")
-		sql = append(sql, s.having...)
-		vals = append(vals, s.havevals...)
-	}
-
-	if len(s.order) > 0 {
-		sql = append(sql, "ORDER BY")
-		sql = append(sql, s.order...)
-	}
-
-	if s.limit != nil {
-		sql = append(sql, "LIMIT", fmt.Sprintf("%v", *s.limit))
-	}
-
-	if s.offset != nil {
-		sql = append(sql, "OFFSET", fmt.Sprintf("%v", *s.offset))
-	}
-
-	return strings.Join(sql, " "), vals
-}
-
-func (scope scope{{ .Name }}) conditionSQL() (string, []interface{}) {
-	var vals []interface{}
-	conds := []string{}
-	for _, condition := range scope.conditions {
-		conds = append(conds, condition.ToSQL())
-		vals = append(vals, condition.vals...)
-	}
-	return strings.Join(conds, " AND "), vals
-}
-
 // basic conditions
 func (scope scope{{ .Name }}) Eq(val interface{}) {{ .Name }}Scope {
-	c := condition{column: scope.currentColumn}
-	if val == nil {
-		c.cond = "IS NULL"
-	} else {
-		c.cond = "= ?"
-		c.vals = []interface{}{val}
-	}
-
-	scope.conditions = append(scope.conditions, c)
-	return scope
+	return scope{{.Name}}{scope.internalScope.Eq(val)}
 }
 
 func (scope scope{{ .Name }}) Neq(val interface{}) {{ .Name }}Scope {
-	c := condition{column: scope.currentColumn}
-	if val == nil {
-		c.cond = "IS NOT NULL"
-	} else {
-		c.cond = "<> ?"
-		c.vals = []interface{}{val}
-	}
-
-	scope.conditions = append(scope.conditions, c)
-	return scope
+	return scope{{.Name}}{scope.internalScope.Neq(val)}
 }
 
 func (scope scope{{ .Name }}) Gt(val interface{}) {{ .Name }}Scope {
-	c := condition{
-		column: scope.currentColumn,
-		cond:   "> ?",
-		vals:   []interface{}{val},
-	}
-
-	scope.conditions = append(scope.conditions, c)
-	return scope
+	return scope{{.Name}}{scope.internalScope.Gt(val)}
 }
 
 func (scope scope{{ .Name }}) Gte(val interface{}) {{ .Name }}Scope {
-	c := condition{
-		column: scope.currentColumn,
-		cond:   ">= ?",
-		vals:   []interface{}{val},
-	}
-
-	scope.conditions = append(scope.conditions, c)
-	return scope
+	return scope{{.Name}}{scope.internalScope.Gte(val)}
 }
 
 func (scope scope{{ .Name }}) Lt(val interface{}) {{ .Name }}Scope {
-	c := condition{
-		column: scope.currentColumn,
-		cond:   "< ?",
-		vals:   []interface{}{val},
-	}
-
-	scope.conditions = append(scope.conditions, c)
-	return scope
+	return scope{{.Name}}{scope.internalScope.Lt(val)}
 }
 
 func (scope scope{{ .Name }}) Lte(val interface{}) {{ .Name }}Scope {
-
-	c := condition{
-		column: scope.currentColumn,
-		cond:   "<= ?",
-		vals:   []interface{}{val},
-	}
-
-	scope.conditions = append(scope.conditions, c)
-	return scope
+	return scope{{.Name}}{scope.internalScope.Lte(val)}
 }
+
 
 // multi value conditions
 func (scope scope{{ .Name }}) Between(lower, upper interface{}) {{ .Name }}Scope {
-	c := condition{
-		column: scope.currentColumn,
-		cond:   "BETWEEN ? AND ?",
-		vals:   []interface{}{lower, upper},
-	}
-
-	scope.conditions = append(scope.conditions, c)
-	return scope
+	return scope{{.Name}}{scope.internalScope.Between(lower, upper)}
 }
 
 func (scope scope{{ .Name }}) In(vals ...interface{}) {{ .Name }}Scope {
-	if len(vals) == 0 {
-		if reflect.TypeOf(vals[0]).Kind() == reflect.Slice {
-			rv := reflect.ValueOf(vals[0])
-			vals = make([]interface{}, rv.Len())
-			for i := 0; i < rv.Len(); i++ {
-				vals[i] = rv.Index(i).Interface()
-			}
-		}
-	}
-
-	vc := make([]string, len(vals))
-	c := condition{
-		column: scope.currentColumn,
-		cond:   "IN (" + strings.Join(vc, "?, ") + "?)",
-		vals:   vals,
-	}
-
-	scope.conditions = append(scope.conditions, c)
-	return scope
+	return scope{{.Name}}{scope.internalScope.In(vals...)}
 }
 
 func (scope scope{{ .Name }}) NotIn(vals ...interface{}) {{ .Name }}Scope {
-	vc := make([]string, len(vals))
-	c := condition{
-		column: scope.currentColumn,
-		cond:   fmt.Sprintf("NOT IN (%!s(MISSING)?)", strings.Join(vc, "?, ")),
-		vals:   vals,
-	}
-
-	scope.conditions = append(scope.conditions, c)
-	return scope
+	return scope{{.Name}}{scope.internalScope.NotIn(vals...)}
 }
 
 func (scope scope{{ .Name }}) Like(str string) {{ .Name }}Scope {
-	c := condition{
-		column: scope.currentColumn,
-		cond:   "LIKE ?",
-		vals:   []interface{}{str},
-	}
-
-	scope.conditions = append(scope.conditions, c)
-	return scope
+	return scope{{.Name}}{scope.internalScope.Like(str)}
 }
 
 func (scope scope{{ .Name }}) Where(sql string, vals ...interface{}) {{ .Name }}Scope {
-	c := condition{
-		cond: sql,
-		vals: vals,
-	}
-	scope.conditions = append(scope.conditions, c)
-	return scope
+	return scope{{.Name}}{scope.internalScope.Where(sql, vals...)}
 }
 
 // ordering conditions
@@ -595,61 +448,11 @@ func (scope scope{{ .Name }}) Asc() {{ .Name }}Scope {
 
 // Join funcs
 func (scope scope{{ .Name }})	OuterJoin(things ...Scope) {{ .Name }}Scope {
-	for _, thing := range things {
-		thing = thing.SetConn(scope.conn)
-		if joinString, ok := scope.joinOn(thing); ok {
-			scope.joins = append(scope.joins, fmt.Sprintf(
-				"LEFT JOIN %s ON %s",
-				thing.joinable(),
-				joinString, 
-			))
-			scope.joinedScopes = append(scope.joinedScopes, thing)
-			continue
-		} else {
-			for _, joinscope := range scope.joinedScopes {
-				if joinString, ok := joinscope.joinOn(thing); ok {
-					scope.joins = append(scope.joins, fmt.Sprintf(
-						"LEFT JOIN %s ON %s",
-						thing.joinable(),
-						joinString, 
-					))
-					scope.joinedScopes = append(scope.joinedScopes, thing)
-					continue		
-				}
-			}
-		}
-		// error
-	}
-	return scope
+	return scope{{.Name}}{scope.internalScope.outerJoin("{{ .Name }}", things...)}
 }
-func (scope scope{{ .Name }})	InnerJoin(things ...Scope) {{ .Name }}Scope {
-	for _, thing := range things {
-		thing = thing.SetConn(scope.conn)
-		if joinString, ok := scope.joinOn(thing); ok {
-			scope.joins = append(scope.joins, fmt.Sprintf(
-				"INNER JOIN %s ON %s",
-				thing.joinable(),
-				joinString, 
-			))
-			scope.joinedScopes = append(scope.joinedScopes, thing)
-			continue
-		} else {
-			for _, joinscope := range scope.joinedScopes {
-				if joinString, ok := joinscope.joinOn(thing); ok {
-					scope.joins = append(scope.joins, fmt.Sprintf(
-						"INNER JOIN %s ON %s",
-						thing.joinable(),
-						joinString, 
-					))
-					scope.joinedScopes = append(scope.joinedScopes, thing)
-					continue		
-				}
-			}
-		}
-		// error
-	}
 
-	return scope
+func (scope scope{{ .Name }})	InnerJoin(things ...Scope) {{ .Name }}Scope {
+	return scope{{.Name}}{scope.internalScope.innerJoin("{{ .Name }}", things...)}
 }
 
 // JoinBy allows you to specify the exact join SQL statment for one or more
@@ -658,59 +461,6 @@ func (scope scope{{ .Name }})	InnerJoin(things ...Scope) {{ .Name }}Scope {
 func (scope scope{{ .Name }})	JoinBy(joins string, joinedScopes ...Scope) {{ .Name }}Scope {
 	scope.joins = append(scope.joins, joins)
 	return scope
-}
-
-func (scope scope{{ .Name }}) joinOn(joinee Scope) (string, bool) {
-	ts := Schema.Tables["{{ .Name }}"]
-	for _, hm := range ts.HasMany {
-		if (hm.Parent.Name == scope.scopeName() && hm.Child.Name == joinee.scopeName()) || hm.Parent.Name == scope.scopeName() && hm.Child.Name == joinee.scopeName() {
-			pkc := hm.Parent.PrimaryKeyColumn()
-			return fmt.Sprintf(
-				"%s.%s = %s.%s",
-				scope.conn.SQLTable(hm.Parent.Name),
-				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
-				scope.conn.SQLTable(hm.Child.Name),
-				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
-			), true
-		}
-	}
-	for _, hm := range ts.ChildOf {
-		if (hm.Parent.Name == scope.scopeName() && hm.Child.Name == joinee.scopeName()) || hm.Parent.Name == scope.scopeName() && hm.Child.Name == joinee.scopeName() {
-			pkc := hm.Parent.PrimaryKeyColumn()
-			return fmt.Sprintf(
-				"%s.%s = %s.%s",
-				scope.conn.SQLTable(hm.Parent.Name),
-				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
-				scope.conn.SQLTable(hm.Child.Name),
-				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
-			), true
-		}
-	}
-	for _, hm := range ts.HasOne {
-		if (hm.Parent.Name == scope.scopeName() && hm.Child.Name == joinee.scopeName()) || hm.Parent.Name == scope.scopeName() && hm.Child.Name == joinee.scopeName() {
-			pkc := hm.Parent.PrimaryKeyColumn()
-			return fmt.Sprintf(
-				"%s.%s = %s.%s",
-				scope.conn.SQLTable(hm.Parent.Name),
-				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
-				scope.conn.SQLTable(hm.Child.Name),
-				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
-			), true
-		}
-	}
-	for _, hm := range ts.BelongsTo {
-		if (hm.Parent.Name == scope.scopeName() && hm.Child.Name == joinee.scopeName()) || hm.Parent.Name == scope.scopeName() && hm.Child.Name == joinee.scopeName() {
-			pkc := hm.Parent.PrimaryKeyColumn()
-			return fmt.Sprintf(
-				"%s.%s = %s.%s",
-				scope.conn.SQLTable(hm.Parent.Name),
-				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
-				scope.conn.SQLTable(hm.Child.Name),
-				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
-			), true
-		}
-	}
-	return "", false
 }
 
 func (scope scope{{ .Name }}) joinable() string {
@@ -876,82 +626,48 @@ func (scope scope{{ .Name }}) Pick(sql string) {{ .Name }}Scope {
 	return scope
 }
 
-func (scope scope{{ .Name }}) PluckString() ([]string, error) {
-	if scope.isDistinct{
-		scope.currentColumn = "DISTINCT " + scope.currentColumn
-	}
-	scope.columns = []string{scope.currentColumn}
-	ss, vv := scope.ToSQL()
-	rows, err := scope.conn.Query(ss, vv...)
-	if err != nil {
-		return []string{}, err
-	}
-	vals := []string{}
-	defer rows.Close()
-	for rows.Next() {
-		var temp string
-		err = rows.Scan(&temp)
-		if err != nil {
-			return []string{}, err
-		}
-		vals = append(vals, temp)
-	}
-
-	return vals, nil
-}
-
-func (scope scope{{ .Name }}) PluckInt() ([]int64, error) {
-	if scope.isDistinct{
-		scope.currentColumn = "DISTINCT " + scope.currentColumn
-	}
-
-	scope.columns = []string{scope.currentColumn}
-	ss, vv := scope.ToSQL()
-	rows, err := scope.conn.Query(ss, vv...)
-	if err != nil {
-		return []int64{}, err
-	}
-	vals := []int64{}
-	defer rows.Close()
-	for rows.Next() {
-		var temp int64
-		err = rows.Scan(&temp)
-		if err != nil {
-			return []int64{}, err
-		}
-		vals = append(vals, temp)
-	}
-
-	return vals, nil
-}
-
-func (scope scope{{ .Name }}) PluckTime() ([]time.Time, error) {
-	if scope.isDistinct{
-		scope.currentColumn = "DISTINCT " + scope.currentColumn
-	}
-
-	scope.columns = []string{scope.currentColumn}
-	ss, vv := scope.ToSQL()
-	rows, err := scope.conn.Query(ss, vv...)
-	if err != nil {
-		return []time.Time{}, err
-	}
-	vals := []time.Time{}
-	defer rows.Close()
-	for rows.Next() {
-		var temp time.Time
-		err = rows.Scan(&temp)
-		if err != nil {
-			return []time.Time{}, err
-		}
-		vals = append(vals, temp)
-	}
-
-	return vals, nil
-}
-
 func (scope scope{{ .Name }}) PluckStruct(result interface{}) error {
-	panic("UNIMPLEMENTED")
+	destSlicePtr := reflect.ValueOf(result)
+	destSlice:= destSlicePtr.Elem()
+	elem := destSlice.Type().Elem()
+	vn := reflect.New(elem)
+	rfltr := reflector{vn}
+	p := &planner{[]*reflectScanner{}}
+
+	for i := 0; i < elem.NumField(); i++ {
+		f := elem.Field(i)
+		if f.Tag.Get("column") != "" {
+			scope.columns = append(scope.columns, f.Tag.Get("column"))
+		} else {
+			scope.columns = append(
+				scope.columns, 
+				fmt.Sprintf("%s.%s",
+					scope.conn.SQLTable("{{ .Name }}"),
+					scope.conn.SQLColumn("{{ .Name }}", f.Name),
+				),
+			)
+		}
+		p.scanners = append(p.scanners, &reflectScanner{index: i, parent: rfltr, column: f})
+	}
+
+	ss, sv := scope.query()
+	rows, err := scope.conn.Query(ss, sv...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		err = rows.Scan(p.Items()...)
+		if err != nil {
+			return err
+		}
+		p.Finalize(vn.Interface())
+		destSlice = reflect.Append(destSlice, vn.Elem())
+		rfltr.item = reflect.New(elem)
+	}
+	destSlicePtr.Set(destSlice)
+
 	return nil
 }
 
@@ -1207,6 +923,415 @@ func mapperFor{{ .Name }}(c *Conn, includes []string) *mapper{{ .Name }} {
 }
 {{ end }}
 
+type internalScope struct {
+	conn                        *Conn
+	table                       string
+	columns                     []string
+	order                       []string
+	joins                       []string
+	joinedScopes                []Scope
+	includes                    []string
+	conditions                  []condition
+	having                      []string
+	havevals                    []interface{}
+	groupBy                     []string
+	currentColumn, currentAlias string
+	isDistinct                  bool
+	limit, offset               *int64
+	updates                     map[string]interface{}
+}
+
+func (scope internalScope) Conn() *Conn {
+	return scope.conn
+}
+
+func (s *internalScope) query() (string, []interface{}) {
+	// SELECT (columns) FROM (table) (joins) WHERE (conditions)
+	// GROUP BY (grouping) HAVING (havings)
+	// ORDER BY (orderings) LIMIT (limit) OFFSET (offset)
+	sql := []string{}
+	vals := []interface{}{}
+	if len(s.columns) == 0 {
+		sql = append(sql, "SELECT", s.table+".*")
+	} else {
+		sql = append(sql, "SELECT", strings.Join(s.columns, ", "))
+	}
+	// if s.source == nil { // subquery
+	//
+	// } else {
+	sql = append(sql, "FROM", s.table)
+	// }
+	sql = append(sql, s.joins...)
+
+	if len(s.conditions) > 0 {
+		cs, cv := s.conditionSQL()
+		sql = append(sql, "WHERE", cs)
+		vals = append(vals, cv...)
+	}
+
+	// if len(s.groupings) > 0 {
+	//   sql = append(sql , "GROUP BY")
+	//   for _, grouping := range s.groupings {
+	//     sql = append(sql, grouping.ToSQL()
+	//   }
+	// }
+
+	if len(s.having) > 0 {
+		sql = append(sql, "HAVING")
+		sql = append(sql, s.having...)
+		vals = append(vals, s.havevals...)
+	}
+
+	if len(s.order) > 0 {
+		sql = append(sql, "ORDER BY")
+		sql = append(sql, s.order...)
+	}
+
+	if s.limit != nil {
+		sql = append(sql, "LIMIT", fmt.Sprintf("%v", *s.limit))
+	}
+
+	if s.offset != nil {
+		sql = append(sql, "OFFSET", fmt.Sprintf("%v", *s.offset))
+	}
+
+	return strings.Join(sql, " "), vals
+}
+
+func (scope internalScope) conditionSQL() (string, []interface{}) {
+	var vals []interface{}
+	conds := []string{}
+	for _, condition := range scope.conditions {
+		conds = append(conds, condition.ToSQL())
+		vals = append(vals, condition.vals...)
+	}
+	return strings.Join(conds, " AND "), vals
+}
+
+func (scope internalScope) Eq(val interface{}) internalScope {
+	c := condition{column: scope.currentColumn}
+	if val == nil {
+		c.cond = "IS NULL"
+	} else {
+		c.cond = "= ?"
+		c.vals = []interface{}{val}
+	}
+
+	scope.conditions = append(scope.conditions, c)
+	return scope
+}
+
+func (scope internalScope) Neq(val interface{}) internalScope {
+	c := condition{column: scope.currentColumn}
+	if val == nil {
+		c.cond = "IS NOT NULL"
+	} else {
+		c.cond = "<> ?"
+		c.vals = []interface{}{val}
+	}
+
+	scope.conditions = append(scope.conditions, c)
+	return scope
+}
+
+func (scope internalScope) Gt(val interface{}) internalScope {
+	c := condition{
+		column: scope.currentColumn,
+		cond:   "> ?",
+		vals:   []interface{}{val},
+	}
+
+	scope.conditions = append(scope.conditions, c)
+	return scope
+}
+
+func (scope internalScope) Gte(val interface{}) internalScope {
+	c := condition{
+		column: scope.currentColumn,
+		cond:   ">= ?",
+		vals:   []interface{}{val},
+	}
+
+	scope.conditions = append(scope.conditions, c)
+	return scope
+}
+
+func (scope internalScope) Lt(val interface{}) internalScope {
+	c := condition{
+		column: scope.currentColumn,
+		cond:   "< ?",
+		vals:   []interface{}{val},
+	}
+
+	scope.conditions = append(scope.conditions, c)
+	return scope
+}
+
+func (scope internalScope) Lte(val interface{}) internalScope {
+
+	c := condition{
+		column: scope.currentColumn,
+		cond:   "<= ?",
+		vals:   []interface{}{val},
+	}
+
+	scope.conditions = append(scope.conditions, c)
+	return scope
+}
+
+// multi value conditions
+func (scope internalScope) Between(lower, upper interface{}) internalScope {
+	c := condition{
+		column: scope.currentColumn,
+		cond:   "BETWEEN ? AND ?",
+		vals:   []interface{}{lower, upper},
+	}
+
+	scope.conditions = append(scope.conditions, c)
+	return scope
+}
+
+func (scope internalScope) In(vals ...interface{}) internalScope {
+	if len(vals) == 0 {
+		if reflect.TypeOf(vals[0]).Kind() == reflect.Slice {
+			rv := reflect.ValueOf(vals[0])
+			vals = make([]interface{}, rv.Len())
+			for i := 0; i < rv.Len(); i++ {
+				vals[i] = rv.Index(i).Interface()
+			}
+		}
+	}
+
+	vc := make([]string, len(vals))
+	c := condition{
+		column: scope.currentColumn,
+		cond:   "IN (" + strings.Join(vc, "?, ") + "?)",
+		vals:   vals,
+	}
+
+	scope.conditions = append(scope.conditions, c)
+	return scope
+}
+
+func (scope internalScope) NotIn(vals ...interface{}) internalScope {
+	vc := make([]string, len(vals))
+	c := condition{
+		column: scope.currentColumn,
+		cond:   fmt.Sprintf("NOT IN (%!s(MISSING)?)", strings.Join(vc, "?, ")),
+		vals:   vals,
+	}
+
+	scope.conditions = append(scope.conditions, c)
+	return scope
+}
+
+func (scope internalScope) Like(str string) internalScope {
+	c := condition{
+		column: scope.currentColumn,
+		cond:   "LIKE ?",
+		vals:   []interface{}{str},
+	}
+
+	scope.conditions = append(scope.conditions, c)
+	return scope
+}
+
+func (scope internalScope) Where(sql string, vals ...interface{}) internalScope {
+	c := condition{
+		cond: sql,
+		vals: vals,
+	}
+	scope.conditions = append(scope.conditions, c)
+	return scope
+}
+
+
+func (scope internalScope)	outerJoin(name string, things ...Scope) internalScope {
+	for _, thing := range things {
+		thing = thing.SetConn(scope.conn)
+		if joinString, ok := scope.joinOn(name, thing); ok {
+			scope.joins = append(scope.joins, fmt.Sprintf(
+				"LEFT JOIN %s ON %s",
+				thing.joinable(),
+				joinString, 
+			))
+			scope.joinedScopes = append(scope.joinedScopes, thing)
+			continue
+		} else {
+			for _, joinscope := range scope.joinedScopes {
+				if joinString, ok := joinscope.joinOn(name, thing); ok {
+					scope.joins = append(scope.joins, fmt.Sprintf(
+						"LEFT JOIN %s ON %s",
+						thing.joinable(),
+						joinString, 
+					))
+					scope.joinedScopes = append(scope.joinedScopes, thing)
+					continue		
+				}
+			}
+		}
+		// error
+	}
+	return scope
+}
+
+func (scope internalScope)	innerJoin(name string, things ...Scope) internalScope {
+	for _, thing := range things {
+		thing = thing.SetConn(scope.conn)
+		if joinString, ok := scope.joinOn(name, thing); ok {
+			scope.joins = append(scope.joins, fmt.Sprintf(
+				"INNER JOIN %s ON %s",
+				thing.joinable(),
+				joinString, 
+			))
+			scope.joinedScopes = append(scope.joinedScopes, thing)
+			continue
+		} else {
+			for _, joinscope := range scope.joinedScopes {
+				if joinString, ok := joinscope.joinOn(name, thing); ok {
+					scope.joins = append(scope.joins, fmt.Sprintf(
+						"INNER JOIN %s ON %s",
+						thing.joinable(),
+						joinString, 
+					))
+					scope.joinedScopes = append(scope.joinedScopes, thing)
+					continue		
+				}
+			}
+		}
+		// error
+	}
+
+	return scope
+}
+
+func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
+	ts := Schema.Tables[name]
+	for _, hm := range ts.HasMany {
+		if (hm.Parent.Name == name && hm.Child.Name == joinee.scopeName()) || hm.Parent.Name == name && hm.Child.Name == joinee.scopeName() {
+			pkc := hm.Parent.PrimaryKeyColumn()
+			return fmt.Sprintf(
+				"%s.%s = %s.%s",
+				scope.conn.SQLTable(hm.Parent.Name),
+				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
+				scope.conn.SQLTable(hm.Child.Name),
+				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
+			), true
+		}
+	}
+	for _, hm := range ts.ChildOf {
+		if (hm.Parent.Name == name && hm.Child.Name == joinee.scopeName()) || hm.Parent.Name == name && hm.Child.Name == joinee.scopeName() {
+			pkc := hm.Parent.PrimaryKeyColumn()
+			return fmt.Sprintf(
+				"%s.%s = %s.%s",
+				scope.conn.SQLTable(hm.Parent.Name),
+				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
+				scope.conn.SQLTable(hm.Child.Name),
+				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
+			), true
+		}
+	}
+	for _, hm := range ts.HasOne {
+		if (hm.Parent.Name == name && hm.Child.Name == joinee.scopeName()) || hm.Parent.Name == name && hm.Child.Name == joinee.scopeName() {
+			pkc := hm.Parent.PrimaryKeyColumn()
+			return fmt.Sprintf(
+				"%s.%s = %s.%s",
+				scope.conn.SQLTable(hm.Parent.Name),
+				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
+				scope.conn.SQLTable(hm.Child.Name),
+				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
+			), true
+		}
+	}
+	for _, hm := range ts.BelongsTo {
+		if (hm.Parent.Name == name && hm.Child.Name == joinee.scopeName()) || hm.Parent.Name == name && hm.Child.Name == joinee.scopeName() {
+			pkc := hm.Parent.PrimaryKeyColumn()
+			return fmt.Sprintf(
+				"%s.%s = %s.%s",
+				scope.conn.SQLTable(hm.Parent.Name),
+				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
+				scope.conn.SQLTable(hm.Child.Name),
+				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
+			), true
+		}
+	}
+	return "", false
+}
+
+func (scope internalScope) PluckString() ([]string, error) {
+	if scope.isDistinct{
+		scope.currentColumn = "DISTINCT " + scope.currentColumn
+	}
+	scope.columns = []string{scope.currentColumn}
+	ss, vv := scope.query()
+	rows, err := scope.conn.Query(ss, vv...)
+	if err != nil {
+		return []string{}, err
+	}
+	vals := []string{}
+	defer rows.Close()
+	for rows.Next() {
+		var temp string
+		err = rows.Scan(&temp)
+		if err != nil {
+			return []string{}, err
+		}
+		vals = append(vals, temp)
+	}
+
+	return vals, nil
+}
+
+func (scope internalScope) PluckInt() ([]int64, error) {
+	if scope.isDistinct{
+		scope.currentColumn = "DISTINCT " + scope.currentColumn
+	}
+
+	scope.columns = []string{scope.currentColumn}
+	ss, vv := scope.query()
+	rows, err := scope.conn.Query(ss, vv...)
+	if err != nil {
+		return []int64{}, err
+	}
+	vals := []int64{}
+	defer rows.Close()
+	for rows.Next() {
+		var temp int64
+		err = rows.Scan(&temp)
+		if err != nil {
+			return []int64{}, err
+		}
+		vals = append(vals, temp)
+	}
+
+	return vals, nil
+}
+
+func (scope internalScope) PluckTime() ([]time.Time, error) {
+	if scope.isDistinct{
+		scope.currentColumn = "DISTINCT " + scope.currentColumn
+	}
+
+	scope.columns = []string{scope.currentColumn}
+	ss, vv := scope.query()
+	rows, err := scope.conn.Query(ss, vv...)
+	if err != nil {
+		return []time.Time{}, err
+	}
+	vals := []time.Time{}
+	defer rows.Close()
+	for rows.Next() {
+		var temp time.Time
+		err = rows.Scan(&temp)
+		if err != nil {
+			return []time.Time{}, err
+		}
+		vals = append(vals, temp)
+	}
+
+	return vals, nil
+}
+
 type StringArray []string
 
 func (sa StringArray) Includes(s string) bool{
@@ -1238,9 +1363,96 @@ func questions(n int) string {
 			chars[i] = '?'
 		} else {
 			chars[i] = ','
-		}
+	 	}
 	}
 	return string(chars)
+}
+
+type planner struct {
+	scanners []*reflectScanner
+}
+
+func (p *planner) Items() []interface{} {
+	output := make([]interface{}, len(p.scanners))
+	for i, _ := range output {
+		output[i] = p.scanners[i].iface()
+	}
+
+	return output
+}
+
+type mixed interface {
+	SetNull(string)
+}
+
+func (p *planner) Finalize(val interface{}) {
+	for _, s := range p.scanners {
+		if s.column.Type.Kind() == reflect.Ptr {
+			s.finalize()
+		}
+	}
+}
+
+type reflectScanner struct {
+	parent reflector
+	column reflect.StructField
+	index int
+	b      sql.NullBool
+	f      sql.NullFloat64
+	i      sql.NullInt64
+	s      sql.NullString
+	isnull bool
+}
+
+type reflector struct {
+	item reflect.Value
+}
+
+func (rf *reflectScanner) iface() interface{} {
+	if rf.column.Type.Kind() == reflect.Ptr {
+		switch rf.column.Type.Elem().Kind() {
+		case reflect.String:
+			return &rf.s
+		case reflect.Bool:
+			return &rf.b
+		case reflect.Float32, reflect.Float64:
+			return &rf.f
+		default:
+			return &rf.i
+		}
+	} else {
+		return rf.parent.item.Elem().Field(rf.index).Addr().Interface()
+	}
+}
+
+func (rf *reflectScanner) finalize() bool {
+	switch rf.column.Type.Kind() {
+	case reflect.String:
+		if rf.s.Valid {
+			rf.parent.item.Elem().Field(rf.index).SetString(rf.s.String)
+		} else {
+			return true
+		}
+	case reflect.Bool:
+		if rf.b.Valid {
+			rf.parent.item.Elem().Field(rf.index).SetBool(rf.b.Bool)
+		} else {
+			return true
+		}
+	case reflect.Float32, reflect.Float64:
+		if rf.f.Valid {
+			rf.parent.item.Elem().Field(rf.index).SetFloat(rf.f.Float64)
+		} else {
+			return true
+		}
+	default:
+		if rf.i.Valid {
+			rf.parent.item.Elem().Field(rf.index).SetInt(rf.i.Int64)
+		} else {
+			return true
+		}
+	}
+	return false
 }
 `
 
