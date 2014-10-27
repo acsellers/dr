@@ -627,8 +627,8 @@ func (scope scope{{ .Name }}) Pick(sql string) {{ .Name }}Scope {
 }
 
 func (scope scope{{ .Name }}) PluckStruct(result interface{}) error {
-	destSlicePtr := reflect.ValueOf(result)
-	destSlice:= destSlicePtr.Elem()
+	destSlice := reflect.ValueOf(result).Elem()
+	tempSlice := reflect.Zero(destSlice.Type())
 	elem := destSlice.Type().Elem()
 	vn := reflect.New(elem)
 	rfltr := reflector{vn}
@@ -663,10 +663,10 @@ func (scope scope{{ .Name }}) PluckStruct(result interface{}) error {
 			return err
 		}
 		p.Finalize(vn.Interface())
-		destSlice = reflect.Append(destSlice, vn.Elem())
+		tempSlice = reflect.Append(tempSlice, vn.Elem())
 		rfltr.item = reflect.New(elem)
 	}
-	destSlicePtr.Set(destSlice)
+	destSlice.Set(tempSlice)
 
 	return nil
 }
@@ -1429,19 +1429,39 @@ func (rf *reflectScanner) finalize() bool {
 	switch rf.column.Type.Kind() {
 	case reflect.String:
 		if rf.s.Valid {
-			rf.parent.item.Elem().Field(rf.index).SetString(rf.s.String)
+			rf.parent.item.Elem().Field(rf.index).Set(reflect.ValueOf(&rf.s.String))
 		} else {
 			return true
 		}
 	case reflect.Bool:
 		if rf.b.Valid {
-			rf.parent.item.Elem().Field(rf.index).SetBool(rf.b.Bool)
+			rf.parent.item.Elem().Field(rf.index).Set(reflect.ValueOf(&rf.b.Bool))
 		} else {
 			return true
 		}
-	case reflect.Float32, reflect.Float64:
+	case reflect.Float64:
 		if rf.f.Valid {
-			rf.parent.item.Elem().Field(rf.index).SetFloat(rf.f.Float64)
+			rf.parent.item.Elem().Field(rf.index).Set(reflect.ValueOf(&rf.f.Float64))
+		} else {
+			return true
+		}
+	case reflect.Float32:
+		if rf.f.Valid {
+			f := float32(rf.f.Float64)
+			rf.parent.item.Elem().Field(rf.index).Set(reflect.ValueOf(f))
+		} else {
+			return true
+		}
+	case reflect.Int64:
+		if rf.i.Valid {
+			rf.parent.item.Elem().Field(rf.index).Set(reflect.ValueOf(&rf.i.Int64))
+		} else {
+			return true
+		}
+	case reflect.Int:
+		if rf.i.Valid {
+			i := int(rf.i.Int64)
+			rf.parent.item.Elem().Field(rf.index).Set(reflect.ValueOf(&i))
 		} else {
 			return true
 		}
