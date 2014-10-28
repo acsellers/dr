@@ -123,6 +123,30 @@ func (t *Table) PrimaryKeyColumn() Column {
 	return t.Columns()[0]
 }
 
+func (t Table) HasRelationship(relate string) bool {
+	for _, col := range t.cols {
+		switch relate {
+		case "ParentHasMany":
+			if col.IsHasMany() {
+				return true
+			}
+		case "ChildHasMany":
+			if col.IsChildHasMany() {
+				return true
+			}
+		case "HasOne":
+			if col.IsHasOne() {
+				return true
+			}
+		case "BelongsTo":
+			if col.IsBelongsTo() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 type Column struct {
 	GoType, Name string
 	Tag          reflect.StructTag
@@ -151,6 +175,15 @@ func (c Column) NonZeroCheck() string {
 		return ""
 	default:
 		return " != nil"
+	}
+}
+
+func (c Column) Preset() bool {
+	switch c.GoType {
+	case "int", "string", "bool", "&{time.Time}":
+		return c.Tag.Get("length") == ""
+	default:
+		return false
 	}
 }
 

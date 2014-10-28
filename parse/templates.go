@@ -627,48 +627,7 @@ func (scope scope{{ .Name }}) Pick(sql string) {{ .Name }}Scope {
 }
 
 func (scope scope{{ .Name }}) PluckStruct(result interface{}) error {
-	destSlice := reflect.ValueOf(result).Elem()
-	tempSlice := reflect.Zero(destSlice.Type())
-	elem := destSlice.Type().Elem()
-	vn := reflect.New(elem)
-	rfltr := reflector{vn}
-	p := &planner{[]*reflectScanner{}}
-
-	for i := 0; i < elem.NumField(); i++ {
-		f := elem.Field(i)
-		if f.Tag.Get("column") != "" {
-			scope.columns = append(scope.columns, f.Tag.Get("column"))
-		} else {
-			scope.columns = append(
-				scope.columns, 
-				fmt.Sprintf("%s.%s",
-					scope.conn.SQLTable("{{ .Name }}"),
-					scope.conn.SQLColumn("{{ .Name }}", f.Name),
-				),
-			)
-		}
-		p.scanners = append(p.scanners, &reflectScanner{index: i, parent: rfltr, column: f})
-	}
-
-	ss, sv := scope.query()
-	rows, err := scope.conn.Query(ss, sv...)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		err = rows.Scan(p.Items()...)
-		if err != nil {
-			return err
-		}
-		p.Finalize(vn.Interface())
-		tempSlice = reflect.Append(tempSlice, vn.Elem())
-		rfltr.item = reflect.New(elem)
-	}
-	destSlice.Set(tempSlice)
-
-	return nil
+	return scope.internalScope.pluckStruct("{{ .Name }}", result)
 }
 
 // direct sql
@@ -1331,6 +1290,53 @@ func (scope internalScope) PluckTime() ([]time.Time, error) {
 
 	return vals, nil
 }
+
+func (scope internalScope) pluckStruct(name string, result interface{}) error {
+	destSlice := reflect.ValueOf(result).Elem()
+	tempSlice := reflect.Zero(destSlice.Type())
+	elem := destSlice.Type().Elem()
+	vn := reflect.New(elem)
+	rfltr := reflector{vn}
+	p := &planner{[]*reflectScanner{}}
+
+	for i := 0; i < elem.NumField(); i++ {
+		f := elem.Field(i)
+		if f.Tag.Get("column") != "" {
+			scope.columns = append(scope.columns, f.Tag.Get("column"))
+		} else {
+			scope.columns = append(
+				scope.columns, 
+				fmt.Sprintf("%s.%s",
+					scope.conn.SQLTable("{{ .Name }}"),
+					scope.conn.SQLColumn("{{ .Name }}", f.Name),
+				),
+			)
+		}
+		p.scanners = append(p.scanners, &reflectScanner{index: i, parent: rfltr, column: f})
+	}
+
+	ss, sv := scope.query()
+	rows, err := scope.conn.Query(ss, sv...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		err = rows.Scan(p.Items()...)
+		if err != nil {
+			return err
+		}
+		p.Finalize(vn.Interface())
+		tempSlice = reflect.Append(tempSlice, vn.Elem())
+		rfltr.item = reflect.New(elem)
+	}
+	destSlice.Set(tempSlice)
+
+	return nil
+}
+
+
 
 type StringArray []string
 

@@ -19,6 +19,22 @@ package {{ .Name }}
 
 import "github.com/acsellers/dr/schema"
 
+func DefaultInt(col string) schema.Column {
+	return schema.Column{Name: col, Type: "integer", Length: 10}
+}
+
+func DefaultString(col string) schema.Column {
+	return schema.Column{Name: col, Type: "varchar", Length: 255}
+}
+
+func DefaultBool(col string) schema.Column {
+	return schema.Column{Name: col, Type: "bool"}
+}
+
+func DefaultTime(col string) schema.Column {
+	return schema.Column{Name: col, Type: "timestamp"}
+}
+
 var Schema = schema.Schema{
 	Tables: map[string]*schema.Table{
 		{{ range $table := .Tables }}
@@ -26,21 +42,36 @@ var Schema = schema.Schema{
 				Name: "{{ .Name }}",
 				Columns: []schema.Column{
 					{{ range $column := .Columns }}
-						{{ if $column.SimpleType }}
-							schema.Column{
-								Name: "{{ $column.Name }}",
-								Type: "{{ $column.Type }}",
-								Length: {{ $column.Length }},
-							},
-						{{ end }}
-						{{ if $column.Subrecord }}
-							{{ range $subcolumn := $column.Subcolumns }}
+						{{ if $column.Preset }}
+							{{ if eq $column.GoType "int" }}
+								DefaultInt("{{ $column.Name }}"),
+							{{ end }}
+							{{ if eq $column.GoType "string" }}
+								DefaultString("{{ $column.Name }}"),
+							{{ end }}
+							{{ if eq $column.GoType "bool" }}
+								DefaultBool("{{ $column.Name }}"),
+							{{ end }}
+							{{ if eq $column.GoType "&{time.Time}" }}
+								DefaultTime("{{ $column.Name }}"),
+							{{ end }}
+						{{ else }}
+							{{ if $column.SimpleType }}
 								schema.Column{
-									Name: "{{ $subcolumn.Name }}",
-									Type: "{{ $subcolumn.Type }}",
-									Length: {{ $subcolumn.Length }},
-									IncludeName: "{{ $subcolumn.IncludeName }}",
+									Name: "{{ $column.Name }}",
+									Type: "{{ $column.Type }}",
+									Length: {{ $column.Length }},
 								},
+							{{ end }}
+							{{ if $column.Subrecord }}
+								{{ range $subcolumn := $column.Subcolumns }}
+									schema.Column{
+										Name: "{{ $subcolumn.Name }}",
+										Type: "{{ $subcolumn.Type }}",
+										Length: {{ $subcolumn.Length }},
+										IncludeName: "{{ $subcolumn.IncludeName }}",
+									},
+								{{ end }}
 							{{ end }}
 						{{ end }}
 					{{ end }}
@@ -52,59 +83,67 @@ var Schema = schema.Schema{
 
 func init() {
 	{{ range $table := .Tables }}
-		Schema.Tables["{{ .Name }}"].HasMany = []schema.ManyRelationship{
-			{{ range $column := $table.Columns }}
-				{{ if $column.IsHasMany }}
-					schema.ManyRelationship{
-						Schema.Tables["{{ $table.Name }}"],
-						Schema.Tables["{{ $column.GoType }}"],
-						Schema.Tables["{{ $column.GoType }}"].FindColumn("{{ $column.ChildColumn }}"),
-					},
+		{{ if $table.HasRelationship "ParentHasMany" }}
+			Schema.Tables["{{ .Name }}"].HasMany = []schema.ManyRelationship{
+				{{ range $column := $table.Columns }}
+					{{ if $column.IsHasMany }}
+						schema.ManyRelationship{
+							Schema.Tables["{{ $table.Name }}"],
+							Schema.Tables["{{ $column.GoType }}"],
+							Schema.Tables["{{ $column.GoType }}"].FindColumn("{{ $column.ChildColumn }}"),
+						},
+					{{ end }}
 				{{ end }}
-			{{ end }}
-		}
+			}
+		{{ end }}
 	{{ end }}
 
 	{{ range $table := .Tables }}
-		Schema.Tables["{{ .Name }}"].ChildOf = []schema.ManyRelationship{
-			{{ range $column := $table.Columns }}
-				{{ if $column.IsChildHasMany }}
-					schema.ManyRelationship{
-						Schema.Tables["{{ $column.ParentCol.Tbl.Name }}"],
-						Schema.Tables["{{ $table.Name }}"],
-						Schema.Tables["{{ $table.Name }}"].FindColumn("{{ $column.Name }}"),
-					},
+		{{ if $table.HasRelationship "ChildHasMany" }}
+			Schema.Tables["{{ .Name }}"].ChildOf = []schema.ManyRelationship{
+				{{ range $column := $table.Columns }}
+					{{ if $column.IsChildHasMany }}
+						schema.ManyRelationship{
+							Schema.Tables["{{ $column.ParentCol.Tbl.Name }}"],
+							Schema.Tables["{{ $table.Name }}"],
+							Schema.Tables["{{ $table.Name }}"].FindColumn("{{ $column.Name }}"),
+						},
+					{{ end }}
 				{{ end }}
-			{{ end }}
-		}
+			}
+		{{ end }}
 	{{ end }}
 
 	{{ range $table := .Tables }}
-		Schema.Tables["{{ .Name }}"].HasOne = []schema.OneRelationship{
-			{{ range $column := $table.Columns }}
-				{{ if $column.IsHasOne }}
-					schema.OneRelationship{
-						Schema.Tables["{{ $table.Name }}"],
-						Schema.Tables["{{ $column.GoType }}"],
-						Schema.Tables["{{ $column.GoType }}"].FindColumn("{{ $column.ChildColumn }}"),
-					},
+		{{ if $table.HasRelationship "HasOne" }}
+			Schema.Tables["{{ .Name }}"].HasOne = []schema.OneRelationship{
+				{{ range $column := $table.Columns }}
+					{{ if $column.IsHasOne }}
+						schema.OneRelationship{
+							Schema.Tables["{{ $table.Name }}"],
+							Schema.Tables["{{ $column.GoType }}"],
+							Schema.Tables["{{ $column.GoType }}"].FindColumn("{{ $column.ChildColumn }}"),
+						},
+					{{ end }}
 				{{ end }}
-			{{ end }}
-		}
+			}
+		{{ end }}
 	{{ end }}
 
 	{{ range $table := .Tables }}
-		Schema.Tables["{{ .Name }}"].BelongsTo = []schema.OneRelationship{
-			{{ range $column := $table.Columns }}
-				{{ if $column.IsBelongsTo }}
-					schema.OneRelationship{
-						Schema.Tables["{{ $column.ParentCol.Tbl.Name }}"],
-						Schema.Tables["{{ $column.ParentCol.GoType }}"],
-						Schema.Tables["{{ $column.ParentCol.GoType }}"].FindColumn("{{ $column.Name }}"),
-					},
+		{{ if $table.HasRelationship "BelongsTo" }}
+			Schema.Tables["{{ .Name }}"].BelongsTo = []schema.OneRelationship{
+				{{ range $column := $table.Columns }}
+					{{ if $column.IsBelongsTo }}
+						schema.OneRelationship{
+							Schema.Tables["{{ $column.ParentCol.Tbl.Name }}"],
+							Schema.Tables["{{ $column.ParentCol.GoType }}"],
+							Schema.Tables["{{ $column.ParentCol.GoType }}"].FindColumn("{{ $column.Name }}"),
+						},
+					{{ end }}
 				{{ end }}
-			{{ end }}
-		}
+			}
+		{{ end }}
 	{{ end }}
 }
 
@@ -121,14 +160,18 @@ func (t *{{ $table.Name }}) Save(c *Conn) error {
 	}
 }
 
+func (t *{{ $table.Name }}) simpleCols(c *Conn) []string {
+	return []string{ {{ range $column := $table.Columns }}{{ if and (ne $column.Name $table.PrimaryKeyColumn.Name) $column.SimpleType }} c.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}"),{{ end }}{{ end }} }	
+}
+
+func (t *{{ $table.Name }}) simpleVals() []interface{} {
+	return []interface{}{ {{ range $column := $table.Columns }}{{ if and (ne $column.Name $table.PrimaryKeyColumn.Name) $column.SimpleType }} t.{{ $column.Name }},{{ end }}{{ end }} }	
+}
+
 func (t *{{ $table.Name }}) create(c *Conn) error {
-	vals := []interface{}{}
-	cols := []string{}
+	cols := t.simpleCols(c)
+	vals := t.simpleVals()
 	{{ range $column := $table.Columns }}
-		{{ if and (ne $column.Name $table.PrimaryKeyColumn.Name) $column.SimpleType }}
-			vals = append(vals, t.{{ $column.Name }})
-			cols = append(cols, c.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}"))
-		{{ end }}
 		{{ if $column.Subrecord }}
 			{{ range $subcolumn := $column.Subcolumns }}
 				{{ if $subcolumn.SimpleType }}
@@ -172,14 +215,8 @@ func (t *{{ $table.Name }}) create(c *Conn) error {
 }
 
 func (t *{{ $table.Name }}) update(c *Conn) error {
-	vals := []interface{}{}
-	cols := []string{}
-	{{ range $column := $table.Columns }}
-		{{ if and (ne $column.Name $table.PrimaryKeyColumn.Name) $column.SimpleType }}
-			vals = append(vals, t.{{ $column.Name }})
-			cols = append(cols, c.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}") + "= ?")
-		{{ end }}
-	{{ end }}
+	cols := t.simpleCols(c)
+	vals := t.simpleVals()
 
 	sql := fmt.Sprintf(
 		"UPDATE %s SET %s WHERE %s=?",
