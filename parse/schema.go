@@ -35,6 +35,52 @@ func DefaultTime(col string) schema.Column {
 	return schema.Column{Name: col, Type: "timestamp"}
 }
 
+func createRecord(c *Conn, cols []string, vals []interface{}, name, pkname string) (int, error) {
+	sql := fmt.Sprintf(
+		"INSERT INTO %s (%s) VALUES (%s)",
+		c.SQLTable(name),
+		strings.Join(cols, ", "),
+		questions(len(cols)),
+	)
+	if c.returning {
+		sql += " RETURNING " + c.SQLColumn(name, pkname)
+		var pk int
+		row := c.QueryRow(sql, vals...)
+		err := row.Scan(&pk)
+		return pk, err
+	} else {
+		result, err := c.Exec(sql, vals...)
+		if err != nil {
+			return 0, err
+		}
+		
+		id, err := result.LastInsertId()
+		return int(id), err
+	}
+}
+
+func updateRecord(c *Conn, cols []string, vals []interface{}, name, pkname string) error {
+	sql := fmt.Sprintf(
+		"UPDATE %s SET %s WHERE %s=?",
+		c.SQLTable(name),
+		strings.Join(cols, ", "),
+		c.SQLColumn(name, pkname),
+	)
+	_, err := c.Exec(sql, vals...)
+	return err
+}
+
+func deleteRecord(c *Conn, val interface{}, name, pkname string) error {
+	sql := fmt.Sprintf(
+		"DELETE FROM %s WHERE %s = ?",
+		c.SQLTable(name),
+		c.SQLColumn(name, pkname),
+	)
+	_, err := c.Exec(sql, val)
+	return err
+
+}
+
 var Schema = schema.Schema{
 	Tables: map[string]*schema.Table{
 		{{ range $table := .Tables }}
@@ -184,58 +230,19 @@ func (t *{{ $table.Name }}) create(c *Conn) error {
 		{{ end }}
 	{{ end }}
 
-	sql := fmt.Sprintf(
-		"INSERT INTO %s (%s) VALUES (%s)",
-		c.SQLTable("{{ $table.Name }}"),
-		strings.Join(cols, ", "),
-		questions(len(cols)),
-	)
-	if c.returning {
-		sql += " RETURNING " + c.SQLColumn("{{ $table.Name }}", "{{ $table.PrimaryKeyColumn.Name }}")
-		var pk {{ $table.PrimaryKeyColumn.GoType }}
-		row := c.QueryRow(sql, vals...)
-		err := row.Scan(&pk)
-		if err == nil {
+	pk ,err := createRecord(c, cols, vals, "{{ $table.Name }}", "{{ $table.PrimaryKeyColumn.Name }}")
+	if err == nil {
 			t.{{ $table.PrimaryKeyColumn.Name }} = pk
-		}
-		return err
-	} else {
-		result, err := c.Exec(sql, vals...)
-		if err != nil {
-			return err
-		}
-		
-		id, err := result.LastInsertId()
-		if err == nil {
-			t.{{ $table.PrimaryKeyColumn.Name }} = {{ $table.PrimaryKeyColumn.GoType }}(id)
-		}
 	}
-
-	return nil
+	return err
 }
 
 func (t *{{ $table.Name }}) update(c *Conn) error {
-	cols := t.simpleCols(c)
-	vals := t.simpleVals()
-
-	sql := fmt.Sprintf(
-		"UPDATE %s SET %s WHERE %s=?",
-		c.SQLTable("{{ $table.Name }}"),
-		strings.Join(cols, ", "),
-		c.SQLColumn("{{ $table.Name }}", "{{ $table.PrimaryKeyColumn.Name }}"),
-	)
-	_, err := c.Exec(sql, append(vals, t.{{ $table.PrimaryKeyColumn.Name }})...)
-	return err
+	return updateRecord(c, t.simpleCols(c), append(t.simpleVals(), t.{{ $table.PrimaryKeyColumn.Name }}), "{{ $table.Name }}", "{{ $table.PrimaryKeyColumn.Name }}")
 }
 
 func (t {{ $table.Name }}) Delete(c *Conn) error {
-	sql := fmt.Sprintf(
-		"DELETE FROM %s WHERE %s = ?",
-		c.SQLTable("{{ $table.Name }}"),
-		c.SQLColumn("{{ $table.Name }}", "{{ $table.PrimaryKeyColumn.Name }}"),
-	)
-	_, err := c.Exec(sql, t.{{ $table.PrimaryKeyColumn.Name }})
-	return err
+	return deleteRecord(c, t.{{ $table.PrimaryKeyColumn.Name }}, "{{ $table.Name }}", "{{ $table.PrimaryKeyColumn.Name }}")
 }
 {{ end }}
 `

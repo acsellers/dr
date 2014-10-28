@@ -1307,8 +1307,8 @@ func (scope internalScope) pluckStruct(name string, result interface{}) error {
 			scope.columns = append(
 				scope.columns, 
 				fmt.Sprintf("%s.%s",
-					scope.conn.SQLTable("{{ .Name }}"),
-					scope.conn.SQLColumn("{{ .Name }}", f.Name),
+					scope.conn.SQLTable(name),
+					scope.conn.SQLColumn(name, f.Name),
 				),
 			)
 		}
@@ -1335,8 +1335,6 @@ func (scope internalScope) pluckStruct(name string, result interface{}) error {
 
 	return nil
 }
-
-
 
 type StringArray []string
 
