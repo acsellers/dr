@@ -176,7 +176,9 @@ import (
 
 type Scope interface {
 	condSQL() (string, []interface{})
-	ToSQL() (string, []interface{})
+	QuerySQL() (string, []interface{})
+	UpdateSQL() (string, []interface{})
+	DeleteSQL() (string, []interface{})
 	scopeName() string
 	Conn() *Conn
 	SetConn(*Conn) Scope
@@ -263,7 +265,7 @@ type {{ .Name }}Scope interface {
 	Count() int64
 	CountBy(sql string) int64
 	CountOf() int64
-	UpdateSQL(sql string, vals ...interface{}) error
+	UpdateBySQL(sql string, vals ...interface{}) error
 	Delete() error
 
 	// Special operations
@@ -536,7 +538,7 @@ func (scope scope{{ .Name }}) Retrieve() ({{ .Name }}, error) {
 	m.Current = &val
 	scope.columns = m.Columns
 
-	ss, vv := scope.ToSQL()
+	ss, vv := scope.QuerySQL()
 	row := scope.conn.QueryRow(ss, vv...)
 	err := row.Scan(m.Scanners...)
 	if err != nil {
@@ -550,7 +552,7 @@ func (scope scope{{ .Name }}) RetrieveAll() ([]{{ .Name }}, error) {
 	m := mapperFor{{ .Name }}(scope.conn, scope.includes)
 	scope.columns = m.Columns
 
-	ss, vv := scope.ToSQL()
+	ss, vv := scope.QuerySQL()
 	rows, err := scope.conn.Query(ss, vv...)
 	if err != nil {
 		err = fmt.Errorf("SQL: %s\n%s", ss, err.Error())
@@ -595,25 +597,7 @@ func (scope scope{{ .Name }}) Set(val interface{}) {{ .Name }}Scope {
 }
 
 func (scope scope{{ .Name }}) Update() error {
-	sql := fmt.Sprintf(
-		"UPDATE %s SET ",
-		scope.conn.SQLTable("{{ $table.Name }}"),
-	)
-
-	updates := []string{}
-	vals := []interface{}{}
-	for col, val := range scope.updates {
-		updates = append(updates, col + " = ?")
-		vals = append(vals, val)
-	}
-	sql += strings.Join(updates, ", ")
-
-	if len(scope.conditions) > 0 {
-		cs, cv := scope.conditionSQL()
-		sql += " WHERE " + cs
-		vals = append(vals, cv...)
-	}
-
+	sql, vals := scope.UpdateSQL()
 	_, err := scope.conn.Exec(sql, vals...)
 	return err
 }
@@ -637,7 +621,7 @@ func (scope scope{{ .Name }}) Count() int64 {
 
 func (scope scope{{ .Name }}) CountBy(sql string) int64 {
 	scope.columns = []string{sql}
-	ss, sv := scope.ToSQL()
+	ss, sv := scope.QuerySQL()
 	var value int64
 	row := scope.conn.QueryRow(ss, sv...)
 	err := row.Scan(&value)
@@ -655,7 +639,7 @@ func (scope scope{{ .Name }}) CountOf() int64 {
 	return scope.CountBy(fmt.Sprintf("COUNT(%s)", scope.currentColumn))
 }
 
-func (scope scope{{ .Name }}) UpdateSQL(sql string, vals ...interface{}) error {
+func (scope scope{{ .Name }}) UpdateBySQL(sql string, vals ...interface{}) error {
 	scope.columns = []string{""}
 	ss, sv := scope.query()
 	ss = strings.TrimPrefix(ss, "SELECT FROM "+scope.table)
@@ -665,27 +649,19 @@ func (scope scope{{ .Name }}) UpdateSQL(sql string, vals ...interface{}) error {
 }
 
 func (scope scope{{ .Name }}) Delete() error {
-	delScope := scope.Clone()
-	if len(scope.joins) > 0 || len(scope.having) > 0 {
-		ids, err := scope.{{ .PrimaryKeyColumn.Name }}().Distinct().PluckInt()
-		if err != nil {
+	sql, cv := scope.DeleteSQL()
+	if sql == "" {
+		if err, ok := cv[0].(error); ok {
 			return err
+		} else {
+			return fmt.Errorf("Unspecified Error in DeleteSQL()")
 		}
-		delScope = delScope.ClearAll().{{ .PrimaryKeyColumn.Name }}().In(ids)
 	}
-	cs, cv := scope.condSQL()
-	if cs == "" {
-		sql := fmt.Sprintf("DELETE FROM %s",scope.table, cs)
-		_, err := scope.conn.Exec(sql, cv)
-		return err
-	} else {
-		sql := fmt.Sprintf("DELETE FROM %s WHERE %s",scope.table, cs)
-		_, err := scope.conn.Exec(sql, cv...)
-		if err != nil {
-			return fmt.Errorf("Encountered error: %v\nSQL: %s %v", err, sql, cv)
-		}
-		return nil
+	_, err := scope.conn.Exec(sql, cv...)
+	if err != nil {
+		return fmt.Errorf("Encountered error: %v\nSQL: %s %v", err, sql, cv)
 	}
+	return nil
 }
 func (scope scope{{ .Name }}) condSQL() (string, []interface{}) {
 	conds := []string{}
@@ -702,8 +678,50 @@ func (scope scope{{ .Name }}) Clone() {{ .Name }}Scope {
 	return scope
 }
 
-func (scope scope{{ .Name }}) ToSQL() (string, []interface{}) {
+func (scope scope{{ .Name }}) QuerySQL() (string, []interface{}) {
 	return scope.query()
+}
+
+func (scope scope{{ .Name }}) UpdateSQL() (string, []interface{}) {
+	sql := fmt.Sprintf(
+		"UPDATE %s SET ",
+		scope.conn.SQLTable("{{ $table.Name }}"),
+	)
+
+	updates := []string{}
+	vals := []interface{}{}
+	for col, val := range scope.updates {
+		updates = append(updates, col + " = ?")
+		vals = append(vals, val)
+	}
+	sql += strings.Join(updates, ", ")
+
+	if len(scope.conditions) > 0 {
+		cs, cv := scope.conditionSQL()
+		sql += " WHERE " + cs
+		vals = append(vals, cv...)
+	}
+	return sql, vals
+}
+
+func (scope scope{{ .Name }}) DeleteSQL() (string, []interface{}) {
+	delScope := scope.Clone()
+	if len(scope.joins) > 0 || len(scope.having) > 0 {
+		ids, err := scope.{{ .PrimaryKeyColumn.Name }}().Distinct().PluckInt()
+		if err != nil {
+			return "", []interface{}{err}
+		}
+		delScope = delScope.ClearAll().{{ .PrimaryKeyColumn.Name }}().In(ids)
+	}
+	cs, cv := scope.condSQL()
+
+	if cs == "" {
+		sql := fmt.Sprintf("DELETE FROM %s",scope.table, cs)
+		return sql, []interface{}{}
+	} else {
+		sql := fmt.Sprintf("DELETE FROM %s WHERE %s",scope.table, cs)
+		return sql, cv
+	}
 }
 
 func (scope scope{{ .Name }}) As(alias string) {{ .Name }}Scope {
@@ -850,13 +868,7 @@ type mapper{{ .Name }} struct {
 
 func mapperFor{{ .Name }}(c *Conn, includes []string) *mapper{{ .Name }} {
 	m := &mapper{{ .Name }}{}
-	m.Columns = []string{
-		{{ range $column := .Columns }}
-			{{ if $column.SimpleType }}
-				c.SQLTable("{{ $table.Name }}") + "." + c.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}"),
-			{{ end }}
-		{{ end }}
-	}
+	m.Columns = []string{ {{ range $column := .Columns }} {{ if $column.SimpleType }} c.SQLTable("{{ $table.Name }}") + "." + c.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}"), {{ end }} {{ end }} }
 	m.Scanners = []interface{}{
 		{{ range $column := .Columns }}
 			{{ if $column.SimpleType }}
@@ -931,7 +943,7 @@ func (s *internalScope) query() (string, []interface{}) {
 	// if len(s.groupings) > 0 {
 	//   sql = append(sql , "GROUP BY")
 	//   for _, grouping := range s.groupings {
-	//     sql = append(sql, grouping.ToSQL()
+	//     sql = append(sql, grouping.QuerySQL()
 	//   }
 	// }
 
