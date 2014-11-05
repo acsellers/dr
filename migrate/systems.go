@@ -11,6 +11,7 @@ import (
 
 type GenericDB struct {
 	DB                *sql.DB
+	Specific          Alterer
 	Convert           Translator
 	Log               *log.Logger
 	PrimaryKeyDef     string
@@ -122,13 +123,14 @@ func (g *GenericDB) CreateTable(table *schema.Table) error {
 
 func (g *GenericDB) UpdateTable(table *schema.Table) error {
 	for _, col := range table.Columns {
-		exists, err := g.HasColumn(table, &col)
+		exists, err := g.Specific.HasColumn(table, &col)
 		if err != nil {
+			g.Log.Println("Encountered Error:", err)
 			return err
 		}
 		if !exists {
 			g.Log.Println("Adding New Column", col.Name, "to", table.Name)
-			err = g.CreateColumn(table, &col)
+			err = g.Specific.CreateColumn(table, &col)
 			if err != nil {
 				g.Log.Println("Error when adding column", err)
 				return err
@@ -197,6 +199,7 @@ func (s *SqliteDB) CreateTable(table *schema.Table) error {
 }
 
 func (s *SqliteDB) UpdateTable(table *schema.Table) error {
+	s.GenericDB.Specific = s
 	s.GenericDB.PrimaryKeyDef = "%s SERIAL PRIMARY KEY"
 	s.GenericDB.LengthableColumns = s.LengthableColumns()
 	return s.GenericDB.UpdateTable(table)
@@ -386,6 +389,7 @@ func (p *PostgresDB) CreateTable(table *schema.Table) error {
 }
 
 func (p *PostgresDB) UpdateTable(table *schema.Table) error {
+	p.GenericDB.Specific = p
 	p.GenericDB.PrimaryKeyDef = "%s SERIAL PRIMARY KEY"
 	p.GenericDB.LengthableColumns = p.LengthableColumns()
 	return p.GenericDB.UpdateTable(table)
@@ -470,6 +474,7 @@ func (m *MysqlDB) CreateTable(table *schema.Table) error {
 }
 
 func (m *MysqlDB) UpdateTable(table *schema.Table) error {
+	m.GenericDB.Specific = m
 	m.GenericDB.PrimaryKeyDef = "%s SERIAL PRIMARY KEY"
 	m.GenericDB.LengthableColumns = m.LengthableColumns()
 	return m.GenericDB.UpdateTable(table)

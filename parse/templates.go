@@ -285,6 +285,7 @@ type Conn struct {
 	AppConfig
 	reformat bool
 	returning bool
+	Log *log.Logger
 	{{ range .Tables }}
 		{{ .Name }} {{ .Name }}Scope
 	{{ end }}
@@ -307,15 +308,38 @@ func Open(driverName, dataSourceName string) (*Conn, error) {
 	return c, nil
 }
 
+func (c *Conn) Clone() *Conn {
+	c2 := &Conn{
+		DB: c.DB,
+		AppConfig: c.AppConfig,
+		reformat: c.reformat,
+		returning: c.returning,
+		Log: c.Log,
+	}
+	{{ range .Tables }}
+	c2.{{ .Name }} = new{{ .Name }}Scope(c2)
+	{{ end }}
+	return c2
+}
+
 func (c *Conn) Exec(query string, args ...interface{}) (sql.Result, error) {
+	if c.Log != nil {
+		c.Log.Printf("%s %v", query, args)
+	}
 	return c.DB.Exec(c.FormatQuery(query), args...)
 }
 
 func (c *Conn) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	if c.Log != nil {
+		c.Log.Printf("%s %v", query, args)
+	}
 	return c.DB.Query(c.FormatQuery(query), args...)
 }
 
 func (c *Conn) QueryRow(query string, args ...interface{}) *sql.Row {
+	if c.Log != nil {
+		c.Log.Printf("%s %v", query, args)
+	}
 	return c.DB.QueryRow(c.FormatQuery(query), args...)
 }
 
