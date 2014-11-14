@@ -188,99 +188,6 @@ type Scope interface {
 	conds() []condition
 }
 
-var (
-	{{ range $table := .Tables }}
-		{{ if public $table.Name }}
-			{{ if eq (plural $table.Name) $table.Name }}
-				{{ $table.Name }}s {{ .Name }}Scope = &scope{{ .Name }}{}
-			{{ else }}
-				{{ plural $table.Name }} {{ .Name }}Scope = &scope{{ .Name }}{}
-			{{ end }}
-		{{ end }}
-	{{ end }}
-)
-
-{{ range $table := .Tables }}
-type {{ .Name }}Scope interface {
-	// column scopes
-	{{ range $column := .Columns }}{{ if $column.SimpleType }}{{ $column.Name }}() {{ $table.Name }}Scope{{ end }}
-{{ end }}
-	{{ range $column := .Columns }}{{ if $column.Subrecord }}{{ $column.Subrecord.Name }}() {{ $table.Name }}{{ $column.Subrecord.Name }}Scope{{ end }}
-{{ end }}
-
-	// Basic conditions
-	Eq(val interface{}) {{ .Name }}Scope
-	Neq(val interface{}) {{ .Name }}Scope
-	Gt(val interface{}) {{ .Name }}Scope
-	Gte(val interface{}) {{ .Name }}Scope
-	Lt(val interface{}) {{ .Name }}Scope
-	Lte(val interface{}) {{ .Name }}Scope
-	Like(string) {{ .Name }}Scope
-
-	// multi value conditions
-	Between(lower, upper interface{}) {{ .Name }}Scope
-	In(vals ...interface{}) {{ .Name }}Scope
-	NotIn(vals ...interface{}) {{ .Name }}Scope
-	Where(sql string, vals ...interface{}) {{ .Name }}Scope 
-	// ordering conditions
-	Order(ordering string) {{ .Name }}Scope
-	Desc() {{ .Name }}Scope
-	Asc() {{ .Name }}Scope
-
-	// Join funcs
-	OuterJoin(things ...Scope) {{ .Name }}Scope
-	InnerJoin(things ...Scope) {{ .Name }}Scope
-	JoinBy(joins string, joined ...Scope) {{ .Name }}Scope
-
-	// Aggregation filtering
-	Having(sql string, vals ...interface{}) {{ .Name }}Scope
-	GroupBySQL(cols ...string) {{ .Name }}Scope
-
-	// Result count filtering
-	Limit(limit int64) {{ .Name }}Scope
-	Offset(offset int64) {{ .Name }}Scope
-
-	// Misc. Scope operations
-	Clear() {{ .Name }}Scope 
-	ClearAll() {{ .Name }}Scope
-	Base() {{ .Name }}Scope
-
-	// Struct instance saving and loading
-	Find(id interface{}) ({{ .Name }}, error)
-	Retrieve() ({{ .Name }}, error)
-	RetrieveAll() ([]{{ .Name }}, error)
-	SaveAll(vals []{{ .Name }}) error
-
-	// Scope attribute updating
-	Set(val interface{}) {{ .Name }}Scope
-	Update() error
-
-	// Subset plucking
-	Pick(sql string) {{ .Name }}Scope
-	PluckString() ([]string, error)
-	PluckInt() ([]int64, error)
-	PluckTime() ([]time.Time, error)
-	PluckStruct(result interface{}) error
-
-	// Direct SQL operations
-	Count() int64
-	CountBy(sql string) int64
-	CountOf() int64
-	UpdateBySQL(sql string, vals ...interface{}) error
-	Delete() error
-
-	// Special operations
-	Scope
-
-	// special operations
-	Clone() {{ .Name }}Scope
-	As(alias string) {{ .Name }}Scope
-	Distinct() {{ .Name }}Scope
-	And(...{{ .Name }}Scope) {{ .Name }}Scope
-	Or(...{{ .Name }}Scope) {{ .Name }}Scope
-}
-{{ end }}
-
 type Conn struct {
 	*sql.DB
 	AppConfig
@@ -304,7 +211,7 @@ func Open(driverName, dataSourceName string) (*Conn, error) {
 		return nil, err
 	}
 	{{ range .Tables }}
-	c.{{ .Name }} = new{{ .Name }}Scope(c)
+	c.{{ .Name }} = New{{ .Name }}Scope(c)
 	{{ end }}
 	return c, nil
 }
@@ -318,7 +225,7 @@ func (c *Conn) Clone() *Conn {
 		Log: c.Log,
 	}
 	{{ range .Tables }}
-	c2.{{ .Name }} = new{{ .Name }}Scope(c2)
+	c2.{{ .Name }} = New{{ .Name }}Scope(c2)
 	{{ end }}
 	return c2
 }
@@ -387,12 +294,12 @@ func (c *defaultConfig) SQLColumn(table, column string) string {
 }
 
 {{ range $table := .Tables }}
-type scope{{ .Name }} struct {
+type {{ .Name }}Scope struct {
 	internalScope
 }
 
-func new{{ .Name }}Scope(c *Conn) *scope{{ .Name }} {
-	return &scope{{ .Name }}{
+func New{{ .Name }}Scope(c *Conn) {{ .Name }}Scope {
+	return {{ .Name }}Scope {
 		internalScope{
 			conn:          c,
 			table:         c.SQLTable("{{ .Name }}"),
@@ -401,96 +308,97 @@ func new{{ .Name }}Scope(c *Conn) *scope{{ .Name }} {
 	}
 }
 
-func (scope scope{{ .Name }}) SetConn(conn *Conn) Scope {
+func (scope {{ .Name }}Scope) SetConn(conn *Conn) Scope {
 	scope.conn = conn
 	return scope
 }
 
-func (scope{{ .Name }}) scopeName() string {
+func ({{ .Name }}Scope) scopeName() string {
 	return "{{ .Name }}"
 }
 
 // basic conditions
-func (scope scope{{ .Name }}) Eq(val interface{}) {{ .Name }}Scope {
-	return scope{{.Name}}{scope.internalScope.Eq(val)}
+func (scope {{ .Name }}Scope) Eq(val interface{}) {{ .Name }}Scope {
+	return {{.Name}}Scope{scope.internalScope.Eq(val)}
 }
 
-func (scope scope{{ .Name }}) Neq(val interface{}) {{ .Name }}Scope {
-	return scope{{.Name}}{scope.internalScope.Neq(val)}
+func (scope {{ .Name }}Scope) Neq(val interface{}) {{ .Name }}Scope {
+	return {{.Name}}Scope{scope.internalScope.Neq(val)}
 }
 
-func (scope scope{{ .Name }}) Gt(val interface{}) {{ .Name }}Scope {
-	return scope{{.Name}}{scope.internalScope.Gt(val)}
+func (scope {{ .Name }}Scope) Gt(val interface{}) {{ .Name }}Scope {
+	return {{.Name}}Scope{scope.internalScope.Gt(val)}
 }
 
-func (scope scope{{ .Name }}) Gte(val interface{}) {{ .Name }}Scope {
-	return scope{{.Name}}{scope.internalScope.Gte(val)}
+func (scope {{ .Name }}Scope) Gte(val interface{}) {{ .Name }}Scope {
+	return {{.Name}}Scope{scope.internalScope.Gte(val)}
 }
 
-func (scope scope{{ .Name }}) Lt(val interface{}) {{ .Name }}Scope {
-	return scope{{.Name}}{scope.internalScope.Lt(val)}
+func (scope {{ .Name }}Scope) Lt(val interface{}) {{ .Name }}Scope {
+	return {{.Name}}Scope{scope.internalScope.Lt(val)}
 }
 
-func (scope scope{{ .Name }}) Lte(val interface{}) {{ .Name }}Scope {
-	return scope{{.Name}}{scope.internalScope.Lte(val)}
+func (scope {{ .Name }}Scope) Lte(val interface{}) {{ .Name }}Scope {
+	return {{.Name}}Scope{scope.internalScope.Lte(val)}
 }
 
 
 // multi value conditions
-func (scope scope{{ .Name }}) Between(lower, upper interface{}) {{ .Name }}Scope {
-	return scope{{.Name}}{scope.internalScope.Between(lower, upper)}
+func (scope {{ .Name }}Scope) Between(lower, upper interface{}) {{ .Name }}Scope {
+	return {{.Name}}Scope{scope.internalScope.Between(lower, upper)}
 }
 
-func (scope scope{{ .Name }}) In(vals ...interface{}) {{ .Name }}Scope {
-	return scope{{.Name}}{scope.internalScope.In(vals...)}
+func (scope {{ .Name }}Scope) In(vals ...interface{}) {{ .Name }}Scope {
+	return {{.Name}}Scope{scope.internalScope.In(vals...)}
 }
 
-func (scope scope{{ .Name }}) NotIn(vals ...interface{}) {{ .Name }}Scope {
-	return scope{{.Name}}{scope.internalScope.NotIn(vals...)}
+func (scope {{ .Name }}Scope) NotIn(vals ...interface{}) {{ .Name }}Scope {
+	return {{.Name}}Scope{scope.internalScope.NotIn(vals...)}
 }
 
-func (scope scope{{ .Name }}) Like(str string) {{ .Name }}Scope {
-	return scope{{.Name}}{scope.internalScope.Like(str)}
+func (scope {{ .Name }}Scope) Like(str string) {{ .Name }}Scope {
+	return {{.Name}}Scope{scope.internalScope.Like(str)}
 }
 
-func (scope scope{{ .Name }}) Where(sql string, vals ...interface{}) {{ .Name }}Scope {
-	return scope{{.Name}}{scope.internalScope.Where(sql, vals...)}
+func (scope {{ .Name }}Scope) Where(sql string, vals ...interface{}) {{ .Name }}Scope {
+	return {{.Name}}Scope{scope.internalScope.Where(sql, vals...)}
 }
 
 // ordering conditions
-func (scope scope{{ .Name }}) Order(ordering string) {{ .Name }}Scope {
+func (scope {{ .Name }}Scope) Order(ordering string) {{ .Name }}Scope {
 	scope.order = append(scope.order, ordering)
 	return scope
 }
 
-func (scope scope{{ .Name }}) Desc() {{ .Name }}Scope {
+func (scope {{ .Name }}Scope) Desc() {{ .Name }}Scope {
 	scope.order = append(scope.order, scope.currentColumn+" DESC")
 	return scope
 }
 
-func (scope scope{{ .Name }}) Asc() {{ .Name }}Scope {
+func (scope {{ .Name }}Scope) Asc() {{ .Name }}Scope {
 	scope.order = append(scope.order, scope.currentColumn+" ASC")
 	return scope
 }
 
 // Join funcs
-func (scope scope{{ .Name }})	OuterJoin(things ...Scope) {{ .Name }}Scope {
-	return scope{{.Name}}{scope.internalScope.outerJoin("{{ .Name }}", things...)}
+func (scope {{ .Name }}Scope)	OuterJoin(things ...Scope) {{ .Name }}Scope {
+	return {{.Name}}Scope{scope.internalScope.outerJoin("{{ .Name }}", things...)}
 }
 
-func (scope scope{{ .Name }})	InnerJoin(things ...Scope) {{ .Name }}Scope {
-	return scope{{.Name}}{scope.internalScope.innerJoin("{{ .Name }}", things...)}
+func (scope {{ .Name }}Scope)	InnerJoin(things ...Scope) {{ .Name }}Scope {
+	return {{.Name}}Scope{scope.internalScope.innerJoin("{{ .Name }}", things...)}
 }
 
 // JoinBy allows you to specify the exact join SQL statment for one or more
 // tables. You can also pass the Scope objects that you are manually joining, 
 // which are recorded for future Joining to work off of or to be Include'd.
-func (scope scope{{ .Name }})	JoinBy(joins string, joinedScopes ...Scope) {{ .Name }}Scope {
+func (scope {{ .Name }}Scope)	JoinBy(joins string, joinedScopes ...Scope) {{ .Name }}Scope {
 	scope.joins = append(scope.joins, joins)
+	scope.joinedScopes = append(scope.joinedScopes, joinedScopes...)
 	return scope
 }
 
-func (scope scope{{ .Name }}) joinable() string {
+func (scope {{ .Name }}Scope) joinable() string {
 	if scope.currentAlias != "" {
 		return fmt.Sprintf(
 			"%s AS %s",
@@ -501,7 +409,7 @@ func (scope scope{{ .Name }}) joinable() string {
 	return scope.conn.SQLTable("{{ .Name }}")
 }
 
-func (scope scope{{ .Name }}) joinTable() string {
+func (scope {{ .Name }}Scope) joinTable() string {
 	if scope.currentAlias != "" {
 		return scope.currentAlias
 	}
@@ -509,30 +417,30 @@ func (scope scope{{ .Name }}) joinTable() string {
 }
 
 // aggregation filtering
-func (scope scope{{ .Name }}) Having(sql string, vals ...interface{}) {{ .Name }}Scope {
+func (scope {{ .Name }}Scope) Having(sql string, vals ...interface{}) {{ .Name }}Scope {
 	scope.having = append(scope.having, sql)
 	scope.havevals = append(scope.havevals, vals...)
 	return scope
 }
 
-func (scope scope{{ .Name }}) GroupBySQL(cols ...string) {{ .Name }}Scope {
+func (scope {{ .Name }}Scope) GroupBySQL(cols ...string) {{ .Name }}Scope {
 	scope.groupBy = append(scope.groupBy, cols...)
 	return scope
 }
 
 // Result count filtering
-func (scope scope{{ .Name }}) Limit(limit int64) {{ .Name }}Scope {
+func (scope {{ .Name }}Scope) Limit(limit int64) {{ .Name }}Scope {
 	scope.limit = &limit
 	return scope
 }
 
-func (scope scope{{ .Name }}) Offset(offset int64) {{ .Name }}Scope {
+func (scope {{ .Name }}Scope) Offset(offset int64) {{ .Name }}Scope {
 	scope.offset = &offset
 	return scope
 }
 
 // misc scope operations
-func (scope scope{{ .Name }}) Clear() {{ .Name }}Scope {
+func (scope {{ .Name }}Scope) Clear() {{ .Name }}Scope {
 	goods := []condition{}
 	for _, cond := range scope.conditions {
 		if !strings.HasSuffix(cond.column, "."+scope.currentColumn) {
@@ -543,21 +451,21 @@ func (scope scope{{ .Name }}) Clear() {{ .Name }}Scope {
 	return scope
 }
 
-func (scope scope{{ .Name }}) ClearAll() {{ .Name }}Scope {
+func (scope {{ .Name }}Scope) ClearAll() {{ .Name }}Scope {
 	scope.conditions = []condition{}
 	return scope
 }
 
-func (scope scope{{ .Name }}) Base() {{ .Name }}Scope {
-	return new{{ .Name }}Scope(scope.conn)
+func (scope {{ .Name }}Scope) Base() {{ .Name }}Scope {
+	return New{{ .Name }}Scope(scope.conn)
 }
 
 // struct saving and loading
-func (scope scope{{ .Name }}) Find(id interface{}) ({{ .Name }}, error) {
+func (scope {{ .Name }}Scope) Find(id interface{}) ({{ .Name }}, error) {
 	return scope.And(scope.Base().Eq(id)).Retrieve()
 }
 
-func (scope scope{{ .Name }}) Retrieve() ({{ .Name }}, error) {
+func (scope {{ .Name }}Scope) Retrieve() ({{ .Name }}, error) {
 	val := &{{ .Name }}{}
 	m := mapperFor{{ .Name }}(scope.conn, scope.includes)
 	m.Current = &val
@@ -573,7 +481,7 @@ func (scope scope{{ .Name }}) Retrieve() ({{ .Name }}, error) {
 
 }
 
-func (scope scope{{ .Name }}) RetrieveAll() ([]{{ .Name }}, error) {
+func (scope {{ .Name }}Scope) RetrieveAll() ([]{{ .Name }}, error) {
 	m := mapperFor{{ .Name }}(scope.conn, scope.includes)
 	scope.columns = m.Columns
 
@@ -600,7 +508,7 @@ func (scope scope{{ .Name }}) RetrieveAll() ([]{{ .Name }}, error) {
 	return vals, nil
 }
 
-func (scope scope{{ .Name }}) SaveAll(vals []{{ .Name }}) error {
+func (scope {{ .Name }}Scope) SaveAll(vals []{{ .Name }}) error {
 	for _, val := range vals {
 		err := val.Save(scope.conn)
 		if err != nil {
@@ -612,7 +520,7 @@ func (scope scope{{ .Name }}) SaveAll(vals []{{ .Name }}) error {
 
 
 // Scope attribute updating
-func (scope scope{{ .Name }}) Set(val interface{}) {{ .Name }}Scope {
+func (scope {{ .Name }}Scope) Set(val interface{}) {{ .Name }}Scope {
 	if scope.updates == nil {
 		scope.updates = make(map[string]interface{})
 	}
@@ -621,30 +529,30 @@ func (scope scope{{ .Name }}) Set(val interface{}) {{ .Name }}Scope {
 	return scope
 }
 
-func (scope scope{{ .Name }}) Update() error {
+func (scope {{ .Name }}Scope) Update() error {
 	sql, vals := scope.UpdateSQL()
 	_, err := scope.conn.Exec(sql, vals...)
 	return err
 }
 
 // subset plucking
-func (scope scope{{ .Name }}) Pick(sql string) {{ .Name }}Scope {
+func (scope {{ .Name }}Scope) Pick(sql string) {{ .Name }}Scope {
 	scope.isDistinct = false
 	scope.currentColumn = sql
 
 	return scope
 }
 
-func (scope scope{{ .Name }}) PluckStruct(result interface{}) error {
+func (scope {{ .Name }}Scope) PluckStruct(result interface{}) error {
 	return scope.internalScope.pluckStruct("{{ .Name }}", result)
 }
 
 // direct sql
-func (scope scope{{ .Name }}) Count() int64 {
+func (scope {{ .Name }}Scope) Count() int64 {
 	return scope.{{ .PrimaryKeyColumn.Name }}().Distinct().CountOf()
 }
 
-func (scope scope{{ .Name }}) CountBy(sql string) int64 {
+func (scope {{ .Name }}Scope) CountBy(sql string) int64 {
 	scope.columns = []string{sql}
 	ss, sv := scope.QuerySQL()
 	var value int64
@@ -657,14 +565,14 @@ func (scope scope{{ .Name }}) CountBy(sql string) int64 {
 	return value
 }
 
-func (scope scope{{ .Name }}) CountOf() int64 {
+func (scope {{ .Name }}Scope) CountOf() int64 {
 	if scope.isDistinct {
 		return scope.CountBy(fmt.Sprintf("COUNT(DISTINCT %s)", scope.currentColumn))
 	}
 	return scope.CountBy(fmt.Sprintf("COUNT(%s)", scope.currentColumn))
 }
 
-func (scope scope{{ .Name }}) UpdateBySQL(sql string, vals ...interface{}) error {
+func (scope {{ .Name }}Scope) UpdateBySQL(sql string, vals ...interface{}) error {
 	scope.columns = []string{""}
 	ss, sv := scope.query()
 	ss = strings.TrimPrefix(ss, "SELECT FROM "+scope.table)
@@ -673,7 +581,7 @@ func (scope scope{{ .Name }}) UpdateBySQL(sql string, vals ...interface{}) error
 	return err
 }
 
-func (scope scope{{ .Name }}) Delete() error {
+func (scope {{ .Name }}Scope) Delete() error {
 	sql, cv := scope.DeleteSQL()
 	if sql == "" {
 		if err, ok := cv[0].(error); ok {
@@ -688,7 +596,7 @@ func (scope scope{{ .Name }}) Delete() error {
 	}
 	return nil
 }
-func (scope scope{{ .Name }}) condSQL() (string, []interface{}) {
+func (scope {{ .Name }}Scope) condSQL() (string, []interface{}) {
 	conds := []string{}
 	vals := []interface{}{}
 	for _, condition := range scope.conditions {
@@ -699,15 +607,15 @@ func (scope scope{{ .Name }}) condSQL() (string, []interface{}) {
 }
 
 // special
-func (scope scope{{ .Name }}) Clone() {{ .Name }}Scope {
+func (scope {{ .Name }}Scope) Clone() {{ .Name }}Scope {
 	return scope
 }
 
-func (scope scope{{ .Name }}) QuerySQL() (string, []interface{}) {
+func (scope {{ .Name }}Scope) QuerySQL() (string, []interface{}) {
 	return scope.query()
 }
 
-func (scope scope{{ .Name }}) UpdateSQL() (string, []interface{}) {
+func (scope {{ .Name }}Scope) UpdateSQL() (string, []interface{}) {
 	sql := fmt.Sprintf(
 		"UPDATE %s SET ",
 		scope.conn.SQLTable("{{ $table.Name }}"),
@@ -729,7 +637,7 @@ func (scope scope{{ .Name }}) UpdateSQL() (string, []interface{}) {
 	return sql, vals
 }
 
-func (scope scope{{ .Name }}) DeleteSQL() (string, []interface{}) {
+func (scope {{ .Name }}Scope) DeleteSQL() (string, []interface{}) {
 	delScope := scope.Clone()
 	if len(scope.joins) > 0 || len(scope.having) > 0 {
 		ids, err := scope.{{ .PrimaryKeyColumn.Name }}().Distinct().PluckInt()
@@ -749,34 +657,34 @@ func (scope scope{{ .Name }}) DeleteSQL() (string, []interface{}) {
 	}
 }
 
-func (scope scope{{ .Name }}) As(alias string) {{ .Name }}Scope {
+func (scope {{ .Name }}Scope) As(alias string) {{ .Name }}Scope {
 	scope.currentAlias = alias
 	return scope
 }
 
-func (scope scope{{ .Name }}) Distinct() {{ .Name }}Scope {
+func (scope {{ .Name }}Scope) Distinct() {{ .Name }}Scope {
 	scope.isDistinct = true
 	return scope
 }
 
-func (scope scope{{ .Name }}) And(scopes ...{{ .Name }}Scope) {{ .Name }}Scope {
+func (scope {{ .Name }}Scope) And(scopes ...Scope) {{ .Name }}Scope {
 	for _, is := range scopes {
-		scope.conditions = append(scope.conditions, is.(scope{{ .Name }}).conditions...)
+		scope.conditions = append(scope.conditions, is.conds()...)
 	}
 	return scope
 }
 
-func (scope scope{{ .Name }}) Or(scopes ...{{ .Name }}Scope) {{ .Name }}Scope {
+func (scope {{ .Name }}Scope) Or(scopes ...Scope) {{ .Name }}Scope {
 	c := condition{}
 	ors := []string{}
 	for _, oscope := range scopes {
 		cond := []string{}
-		ascope := oscope.(scope{{ .Name }})
-		if len(ascope.conditions) == 1 {
-			c.vals = append(c.vals, ascope.conditions[0].vals...)
-			ors = append(ors, ascope.conditions[0].ToSQL())
+		conds := oscope.conds()
+		if len(conds) == 1 {
+			c.vals = append(c.vals, conds[0].vals...)
+			ors = append(ors, conds[0].ToSQL())
 		} else {
-			for _, ocond := range ascope.conditions {
+			for _, ocond := range conds {
 				c.vals = append(c.vals, ocond.vals...)
 				cond = append(cond, ocond.ToSQL())
 			}
@@ -792,7 +700,7 @@ func (scope scope{{ .Name }}) Or(scopes ...{{ .Name }}Scope) {{ .Name }}Scope {
 
 {{ range $column := .Columns }}
 	{{ if $column.SimpleType }}
-		func (scope scope{{ $table.Name }}) {{ $column.Name }}() {{ $table.Name }}Scope {
+		func (scope {{ $table.Name }}Scope) {{ $column.Name }}() {{ $table.Name }}Scope {
 			scope.currentColumn =
 				scope.conn.SQLTable("{{ $table.Name }}") +
 					"." +
@@ -833,55 +741,57 @@ func (scope scope{{ .Name }}) Or(scopes ...{{ .Name }}Scope) {{ .Name }}Scope {
 		{{ end }}
 	{{ end }}
 	{{ if $column.Subrecord }}
-		type scope{{ $table.Name }}{{ $column.Subrecord.Name }} struct {
-			scope scope{{ $table.Name }}
-		}
-		type {{ $table.Name }}{{ $column.Subrecord.Name }}Scope interface {
-			Include() {{ $table.Name }}Scope
-			{{ range $subcolumn := $column.Subcolumns }}
-			  {{ $subcolumn.Name }}() {{ $table.Name }}Scope
-			{{ end }}
-		}
+		/*
+			type scope{{ $table.Name }}{{ $column.Subrecord.Name }} struct {
+				scope {{ $table.Name }}Scope
+			}
+			type {{ $table.Name }}{{ $column.Subrecord.Name }}Scope interface {
+				Include() {{ $table.Name }}Scope
+				{{ range $subcolumn := $column.Subcolumns }}
+					{{ $subcolumn.Name }}() {{ $table.Name }}Scope
+				{{ end }}
+			}
 
-		func (scope scope{{ $table.Name }}) {{ $column.Subrecord.Name }}() {{ $table.Name }}{{ $column.Subrecord.Name }}Scope {
-			return scope{{ $table.Name }}{{ $column.Subrecord.Name }}{scope}
-		}
+			func (scope scope{{ $table.Name }}) {{ $column.Subrecord.Name }}() {{ $table.Name }}{{ $column.Subrecord.Name }}Scope {
+				return scope{{ $table.Name }}{{ $column.Subrecord.Name }}{scope}
+			}
 
-		func (scope scope{{ $table.Name }}{{ $column.Subrecord.Name }}) Include() {{ $table.Name }}Scope {
-			scope.scope.includes = append(scope.scope.includes, "{{ $column.Subrecord.Name }}")
-			return scope.scope
-		}
-	
-		{{ range $subcolumn := $column.Subcolumns }}
-
-			func (scope scope{{ $table.Name }}{{ $column.Subrecord.Name }}) {{ $subcolumn.Name }}() {{ $table.Name }}Scope {
-				scope.scope.currentColumn = 	
-					scope.scope.conn.SQLTable("{{ $table.Name }}") +
-						"." +
-						scope.scope.conn.SQLColumn("{{ $table.Name }}", "{{ $subcolumn.Name }}")
-				scope.scope.currentAlias = ""
-				scope.scope.isDistinct = false
+			func (scope scope{{ $table.Name }}{{ $column.Subrecord.Name }}) Include() {{ $table.Name }}Scope {
+				scope.scope.includes = append(scope.scope.includes, "{{ $column.Subrecord.Name }}")
 				return scope.scope
 			}
+		
+			{{ range $subcolumn := $column.Subcolumns }}
 
-			type mapper{{ $table.Name }}To{{ $subcolumn.Name }} struct {
-				Mapper *mapper{{ $table.Name }}
-			}
+				func (scope scope{{ $table.Name }}{{ $column.Subrecord.Name }}) {{ $subcolumn.Name }}() {{ $table.Name }}Scope {
+					scope.scope.currentColumn = 	
+						scope.scope.conn.SQLTable("{{ $table.Name }}") +
+							"." +
+							scope.scope.conn.SQLColumn("{{ $table.Name }}", "{{ $subcolumn.Name }}")
+					scope.scope.currentAlias = ""
+					scope.scope.isDistinct = false
+					return scope.scope
+				}
 
-			{{ if eq $subcolumn.GoType "int" }}
-				func (m mapper{{ $table.Name }}To{{ $subcolumn.Name }}) Scan(v interface{}) error {
-					{{ template "int_mapper" $subcolumn }}
+				type mapper{{ $table.Name }}To{{ $subcolumn.Name }} struct {
+					Mapper *mapper{{ $table.Name }}
 				}
-			{{ else if eq $subcolumn.GoType "string" }}
-				func (m mapper{{ $table.Name }}To{{ $subcolumn.Name }}) Scan(v interface{}) error {
-					{{ template "string_mapper" $subcolumn }}
-				}
-			{{ else if eq $subcolumn.GoType "&{time Time}" }}
-				func (m mapper{{ $table.Name }}To{{ $subcolumn.Name }}) Scan(v interface{}) error {
-					{{ template "time_mapper" $subcolumn }}
-				}
+
+				{{ if eq $subcolumn.GoType "int" }}
+					func (m mapper{{ $table.Name }}To{{ $subcolumn.Name }}) Scan(v interface{}) error {
+						{{ template "int_mapper" $subcolumn }}
+					}
+				{{ else if eq $subcolumn.GoType "string" }}
+					func (m mapper{{ $table.Name }}To{{ $subcolumn.Name }}) Scan(v interface{}) error {
+						{{ template "string_mapper" $subcolumn }}
+					}
+				{{ else if eq $subcolumn.GoType "&{time Time}" }}
+					func (m mapper{{ $table.Name }}To{{ $subcolumn.Name }}) Scan(v interface{}) error {
+						{{ template "time_mapper" $subcolumn }}
+					}
+				{{ end }}
 			{{ end }}
-		{{ end }}
+		*/
 	{{ end }}
 {{ end }}
 

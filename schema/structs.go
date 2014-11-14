@@ -1,5 +1,10 @@
 package schema
 
+import (
+	"fmt"
+	"log"
+)
+
 type Schema struct {
 	Tables map[string]*Table
 	Views  []View
@@ -33,6 +38,7 @@ func (t *Table) FindColumn(name string) *Column {
 			return &col
 		}
 	}
+	log.Println(fmt.Sprintf("Can't find %s.%s", t.Name, name))
 	return nil
 }
 
