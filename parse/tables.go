@@ -20,6 +20,8 @@ var (
 	subrecordDef = regexp.MustCompile(`type ([a-zA-Z0-9]+) subrecord {`)
 	mixinDef     = regexp.MustCompile(`type ([a-zA-Z0-9]+) mixin {`)
 	tableDef     = regexp.MustCompile(`type ([a-zA-Z0-9]+) table {`)
+	relationDef  = regexp.MustCompile(`relation {`)
+	codeStart    = regexp.MustCompile(`^[a-zA-Z\[]`)
 )
 
 func (pkg *Package) ParseSrc(src ...*os.File) error {
@@ -41,6 +43,14 @@ func (pkg *Package) ParseSrc(src ...*os.File) error {
 	for _, subrecord := range pkg.Subrecords {
 		pkg.processForMixins(subrecord)
 		subrecord.AddRetrieved()
+	}
+
+	// process relations
+	for i, table := range pkg.Tables {
+		pkg.Tables[i] = pkg.processForRelations(table)
+	}
+	for i, table := range pkg.Tables {
+		pkg.Tables[i] = pkg.linkRelations(table)
 	}
 
 	// Write out processed files
@@ -147,13 +157,100 @@ func (pkg *Package) exciseMixins() {
 	}
 }
 
+func (pkg *Package) processForRelations(table Table) Table {
+	if st, ok := table.Spec().Type.(*ast.StructType); ok {
+		for i, field := range st.Fields.List {
+			if len(field.Names) == 1 && field.Names[0].Name == "DRRelation" {
+				if rst, ok := field.Type.(*ast.StructType); ok {
+					for _, rfield := range rst.Fields.List {
+						r := Relationship{Parent: table}
+						fmt.Println("Table:", table.Name(), "Relation:", rfield.Names, rfield.Type)
+						// TODO: names can be plural, fix this later
+						if !strings.HasPrefix(rfield.Names[0].Name, "DRRelated") {
+							r.Alias = rfield.Names[0].Name
+						}
+						if id, ok := rfield.Type.(*ast.Ident); ok {
+							r.Table = id.Name
+							fmt.Println("Singular or OwnedBy:", id.Name)
+						}
+						if se, ok := rfield.Type.(*ast.ArrayType); ok {
+							if id, ok := se.Elt.(*ast.Ident); ok {
+								r.IsArray = true
+								r.Table = id.Name
+								fmt.Println("HasMany:", id.Name)
+							}
+						}
+						table.Relations = append(table.Relations, r)
+					}
+				}
+				if i > 0 {
+					st.Fields.List = append(st.Fields.List[:i], st.Fields.List[i+1:]...)
+				} else {
+					st.Fields.List = st.Fields.List[1:]
+				}
+			}
+		}
+	}
+	return table
+}
+
+func (pkg *Package) linkRelations(table Table) Table {
+	for i, relate := range table.Relations {
+		// parent relations
+		if relate.IsArray {
+			relate.Type = "ParentHasMany"
+			relate.ParentName = table.name
+			relate.ChildName = relate.Table
+			relate.OperativeColumn = relate.ColumnName()
+			table.Relations[i] = relate
+			continue
+		}
+
+		if _, ok := table.ColumnByName(relate.Table + "ID"); !ok {
+			fmt.Println(table.name, relate, len(table.cols))
+			relate.Type = "HasOne"
+			relate.ParentName = table.name
+			relate.ChildName = relate.Table
+			relate.OperativeColumn = relate.ColumnName()
+			table.Relations[i] = relate
+			continue
+		}
+
+		parent, ok := pkg.TableByName(relate.Table)
+		// ghetto error checking
+		if !ok {
+			panic(fmt.Sprintf("Table named %s doesn't exist", relate.Table))
+		}
+
+		// child relations
+		if pRelate, ok := parent.RelationshipTo(table.name); !ok || pRelate.IsArray {
+			relate.Type = "ChildHasMany"
+			relate.ParentName = relate.Table
+			relate.ChildName = table.name
+			relate.OperativeColumn = relate.ColumnName()
+			table.Relations[i] = relate
+			continue
+		}
+
+		relate.Type = "BelongsTo"
+		relate.ParentName = relate.Table
+		relate.ChildName = table.name
+		relate.OperativeColumn = relate.ColumnName()
+		table.Relations[i] = relate
+	}
+
+	return table
+}
+
 func (pkg *Package) processFile(fset *token.FileSet, file *os.File) error {
 	tables, mixins, subrecords := []string{}, []string{}, []string{}
 	output := []string{}
 
 	scanner := bufio.NewScanner(file)
+	inRelation := 0
 	for scanner.Scan() {
 		text := scanner.Text()
+		stripped := strings.TrimSpace(text)
 
 		switch {
 		case subrecordDef.MatchString(text):
@@ -168,6 +265,16 @@ func (pkg *Package) processFile(fset *token.FileSet, file *os.File) error {
 			table := tableDef.FindStringSubmatch(text)[1]
 			tables = append(tables, table)
 			text = strings.Replace(text, " table ", " struct ", 1)
+		case relationDef.MatchString(text):
+			text = "DRRelation struct {"
+			inRelation = 1
+		case inRelation > 0 && stripped == "}":
+			inRelation = 0
+		case inRelation > 0 && codeStart.MatchString(stripped):
+			if len(strings.Split(stripped, " ")) == 1 {
+				text = fmt.Sprintf("DRRelated%d %s", inRelation, stripped)
+				inRelation++
+			}
 		}
 
 		output = append(output, text)
@@ -200,7 +307,7 @@ DeclLoop:
 				}
 				for _, table := range tables {
 					if table == name {
-						pkg.Tables = append(pkg.Tables, Table{name, td, fa, []Column{}, pkg})
+						pkg.Tables = append(pkg.Tables, Table{name: name, spec: td, file: fa, Pkg: pkg})
 						active = true
 						continue DeclLoop
 					}

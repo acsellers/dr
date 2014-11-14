@@ -20,6 +20,15 @@ func (p Package) Name() string {
 	return p.ActiveFiles[0].AST.Name.Name
 }
 
+func (p Package) TableByName(tableName string) (Table, bool) {
+	for _, t := range p.Tables {
+		if t.name == tableName {
+			return t, true
+		}
+	}
+	return Table{}, false
+}
+
 type ActiveFile struct {
 	SrcName string
 	AST     *ast.File
@@ -55,11 +64,65 @@ type Mixinable interface {
 }
 
 type Table struct {
-	name string
-	spec *ast.TypeSpec
-	file *ast.File
-	cols []Column
-	Pkg  *Package
+	name      string
+	spec      *ast.TypeSpec
+	file      *ast.File
+	cols      []Column
+	Pkg       *Package
+	Relations []Relationship
+}
+
+func (t Table) ColumnByName(colName string) (Column, bool) {
+	for _, col := range t.Columns() {
+		if col.Name == colName {
+			return col, true
+		}
+	}
+	return Column{}, false
+}
+
+type Relationship struct {
+	Table string
+	// One of "ParentHasMany", "ChildHasMany", "HasOne", "BelongsTo"
+	Type                  string
+	IsArray               bool
+	Alias                 string
+	Parent                Table
+	ParentName, ChildName string
+	OperativeColumn       string
+}
+
+func (r Relationship) IsHasMany() bool {
+	return r.Type == "ParentHasMany"
+}
+
+func (r Relationship) IsChildHasMany() bool {
+	return r.Type == "ChildHasMany"
+}
+
+func (r Relationship) IsHasOne() bool {
+	return r.Type == "HasOne"
+}
+
+func (r Relationship) IsBelongsTo() bool {
+	return r.Type == "BelongsTo"
+}
+
+func (r Relationship) ColumnName() string {
+	if r.Alias != "" {
+		return r.Alias + "ID"
+	}
+	switch r.Type {
+	case "ParentHasMany":
+		return r.Parent.name + "ID"
+	case "ChildHasMany":
+		return r.Table + "ID"
+	case "HasOne":
+		return r.Parent.name + "ID"
+	case "BelongsTo":
+		return r.Table + "ID"
+	}
+	return ""
 }
 
 func (t Table) Name() string {
@@ -119,29 +182,23 @@ func (t *Table) Columns() []Column {
 	return t.cols
 }
 
+func (t Table) RelationshipTo(tableName string) (Relationship, bool) {
+	for _, relate := range t.Relations {
+		if relate.Table == tableName {
+			return relate, true
+		}
+	}
+	return Relationship{}, false
+}
+
 func (t *Table) PrimaryKeyColumn() Column {
 	return t.Columns()[0]
 }
 
 func (t Table) HasRelationship(relate string) bool {
-	for _, col := range t.cols {
-		switch relate {
-		case "ParentHasMany":
-			if col.IsHasMany() {
-				return true
-			}
-		case "ChildHasMany":
-			if col.IsChildHasMany() {
-				return true
-			}
-		case "HasOne":
-			if col.IsHasOne() {
-				return true
-			}
-		case "BelongsTo":
-			if col.IsBelongsTo() {
-				return true
-			}
+	for _, relation := range t.Relations {
+		if relation.Type == relate {
+			return true
 		}
 	}
 	return false
@@ -153,8 +210,6 @@ type Column struct {
 	Pkg          *Package
 	MustNull     bool
 	Array        bool
-	ParentCol    *Column
-	ChildHasMany bool
 	Tbl          *Table
 	IncludeName  string
 	// for subrecords
@@ -283,81 +338,6 @@ func (c Column) Type() string {
 		return "boolean"
 	default:
 		return "varchar"
-	}
-	return ""
-}
-
-func (c Column) IsHasMany() bool {
-	if !c.SimpleType() {
-		return c.Array && c.Tag.Get("through") == ""
-	}
-	return false
-}
-
-func (c *Column) IsChildHasMany() bool {
-	if parent := c.Tag.Get("child"); parent != "" && c.ParentCol == nil {
-		for _, t := range c.Pkg.Tables {
-			if t.Name() == parent {
-				pc := t.PrimaryKeyColumn()
-				c.ParentCol = &pc
-				c.ChildHasMany = true
-				return true
-			}
-		}
-	}
-	return c.ParentCol != nil && c.ChildHasMany
-}
-
-func (c Column) IsHasOne() bool {
-	if !c.SimpleType() {
-		return !c.Array && c.Tag.Get("through") == "" && c.ChildColumn() != ""
-	}
-	return false
-}
-
-func (c Column) IsBelongsTo() bool {
-	return c.ParentCol != nil && !c.ChildHasMany
-}
-func (c Column) IsHasManyThrough() bool {
-	if !c.SimpleType() {
-		return c.Array && c.Tag.Get("through") != ""
-	}
-	return false
-}
-
-func (c Column) ChildColumn() string {
-	if c.Tag.Get("column") != "" {
-		colname := c.Tag.Get("column")
-		for _, tbl := range c.Pkg.Tables {
-			if tbl.Name() == c.GoType {
-				for i, col := range tbl.cols {
-					if col.Name == colname {
-						col.ParentCol = &c
-						if c.Array {
-							col.ChildHasMany = true
-						}
-						tbl.cols[i] = col
-						return colname
-					}
-
-				}
-			}
-		}
-	}
-	for _, tbl := range c.Pkg.Tables {
-		if tbl.Name() == c.GoType {
-			for i, col := range tbl.cols {
-				if strings.HasPrefix(col.Name, c.Tbl.Name()) && col.GoType != c.Tbl.Name() {
-					col.ParentCol = &c
-					if c.Array {
-						col.ChildHasMany = true
-					}
-					tbl.cols[i] = col
-
-					return col.Name
-				}
-			}
-		}
 	}
 	return ""
 }

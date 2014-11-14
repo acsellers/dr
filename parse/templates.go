@@ -185,6 +185,7 @@ type Scope interface {
 	joinOn(string, Scope) (string, bool)
 	joinable() string
 	joinTable() string
+	conds() []condition
 }
 
 var (
@@ -940,6 +941,10 @@ func (scope internalScope) Conn() *Conn {
 	return scope.conn
 }
 
+func (scope internalScope) conds() []condition {
+	return scope.conditions
+}
+
 func (s *internalScope) query() (string, []interface{}) {
 	// SELECT (columns) FROM (table) (joins) WHERE (conditions)
 	// GROUP BY (grouping) HAVING (havings)
@@ -1179,6 +1184,7 @@ func (scope internalScope)	innerJoin(name string, things ...Scope) internalScope
 				thing.joinable(),
 				joinString, 
 			))
+			scope.conditions = append(scope.conditions, thing.conds()...)
 			scope.joinedScopes = append(scope.joinedScopes, thing)
 			continue
 		} else {
@@ -1190,6 +1196,7 @@ func (scope internalScope)	innerJoin(name string, things ...Scope) internalScope
 						joinString, 
 					))
 					scope.joinedScopes = append(scope.joinedScopes, thing)
+					scope.conditions = append(scope.conditions, thing.conds()...)
 					continue		
 				}
 			}

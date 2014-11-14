@@ -131,12 +131,12 @@ func init() {
 	{{ range $table := .Tables }}
 		{{ if $table.HasRelationship "ParentHasMany" }}
 			Schema.Tables["{{ .Name }}"].HasMany = []schema.ManyRelationship{
-				{{ range $column := $table.Columns }}
-					{{ if $column.IsHasMany }}
+				{{ range $relate := $table.Relations }}
+					{{ if $relate.IsHasMany }}
 						schema.ManyRelationship{
-							Schema.Tables["{{ $table.Name }}"],
-							Schema.Tables["{{ $column.GoType }}"],
-							Schema.Tables["{{ $column.GoType }}"].FindColumn("{{ $column.ChildColumn }}"),
+							Schema.Tables["{{ $relate.ParentName }}"],
+							Schema.Tables["{{ $relate.ChildName }}"],
+							Schema.Tables["{{ $relate.ChildName }}"].FindColumn("{{ $relate.OperativeColumn }}"),
 						},
 					{{ end }}
 				{{ end }}
@@ -147,12 +147,12 @@ func init() {
 	{{ range $table := .Tables }}
 		{{ if $table.HasRelationship "ChildHasMany" }}
 			Schema.Tables["{{ .Name }}"].ChildOf = []schema.ManyRelationship{
-				{{ range $column := $table.Columns }}
-					{{ if $column.IsChildHasMany }}
+				{{ range $relate := $table.Relations }}
+					{{ if $relate.IsChildHasMany }}
 						schema.ManyRelationship{
-							Schema.Tables["{{ $column.ParentCol.Tbl.Name }}"],
-							Schema.Tables["{{ $table.Name }}"],
-							Schema.Tables["{{ $table.Name }}"].FindColumn("{{ $column.Name }}"),
+							Schema.Tables["{{ $relate.ParentName }}"],
+							Schema.Tables["{{ $relate.ChildName }}"],
+							Schema.Tables["{{ $relate.ChildName }}"].FindColumn("{{ $relate.OperativeColumn }}"),
 						},
 					{{ end }}
 				{{ end }}
@@ -163,12 +163,12 @@ func init() {
 	{{ range $table := .Tables }}
 		{{ if $table.HasRelationship "HasOne" }}
 			Schema.Tables["{{ .Name }}"].HasOne = []schema.OneRelationship{
-				{{ range $column := $table.Columns }}
-					{{ if $column.IsHasOne }}
+				{{ range $relate := $table.Relations }}
+					{{ if $relate.IsHasOne }}
 						schema.OneRelationship{
-							Schema.Tables["{{ $table.Name }}"],
-							Schema.Tables["{{ $column.GoType }}"],
-							Schema.Tables["{{ $column.GoType }}"].FindColumn("{{ $column.ChildColumn }}"),
+							Schema.Tables["{{ $relate.ParentName }}"],
+							Schema.Tables["{{ $relate.ChildName }}"],
+							Schema.Tables["{{ $relate.ChildName }}"].FindColumn("{{ $relate.OperativeColumn }}"),
 						},
 					{{ end }}
 				{{ end }}
@@ -179,12 +179,12 @@ func init() {
 	{{ range $table := .Tables }}
 		{{ if $table.HasRelationship "BelongsTo" }}
 			Schema.Tables["{{ .Name }}"].BelongsTo = []schema.OneRelationship{
-				{{ range $column := $table.Columns }}
-					{{ if $column.IsBelongsTo }}
+				{{ range $relate := $table.Relations }}
+					{{ if $relate.IsBelongsTo }}
 						schema.OneRelationship{
-							Schema.Tables["{{ $column.ParentCol.Tbl.Name }}"],
-							Schema.Tables["{{ $column.ParentCol.GoType }}"],
-							Schema.Tables["{{ $column.ParentCol.GoType }}"].FindColumn("{{ $column.Name }}"),
+							Schema.Tables["{{ $relate.ParentName }}"],
+							Schema.Tables["{{ $relate.ChildName }}"],
+							Schema.Tables["{{ $relate.ChildName }}"].FindColumn("{{ $relate.OperativeColumn }}"),
 						},
 					{{ end }}
 				{{ end }}
