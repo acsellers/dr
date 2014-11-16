@@ -70,12 +70,7 @@ func (pkg *Package) ParseSrc(src ...*os.File) error {
 		f.Close()
 	}
 
-	f, err := os.Create(pkg.ActiveFiles[0].AST.Name.Name + "_schema.go")
-	if err != nil {
-		panic("Couldn't open schema file for writing: " + err.Error())
-	}
-	pkg.WriteSchemaFile(f)
-	f.Close()
+	pkg.OutputTemplates()
 
 	return nil
 }

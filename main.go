@@ -23,6 +23,4 @@ func main() {
 			log.Fatal("Couldn't parse file:", name, "got error:", err)
 		}
 	}
-
-	pkg.OutputTemplates()
 }

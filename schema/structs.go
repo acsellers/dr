@@ -33,6 +33,9 @@ func (t *Table) AddIndex(i ...Index) *Table {
 }
 
 func (t *Table) FindColumn(name string) *Column {
+	if t == nil {
+		log.Fatal("Talking to non-existent table for column:", name)
+	}
 	for _, col := range t.Columns {
 		if col.Name == name {
 			return &col

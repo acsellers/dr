@@ -1,11 +1,18 @@
 package parse
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
+	"os"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
+	"text/template"
+
+	"code.google.com/p/go.tools/imports"
+	"github.com/acsellers/inflections"
 )
 
 type Package struct {
@@ -383,4 +390,93 @@ func (t Subrecord) Spec() *ast.TypeSpec {
 }
 func (t Subrecord) File() *ast.File {
 	return t.file
+}
+
+var tmpl *template.Template
+
+func init() {
+	rg := regexp.MustCompile(`^[A-Z].*`)
+	var err error
+	tmpl, err = template.New("dr").
+		Funcs(template.FuncMap{
+		"plural": inflections.Pluralize,
+		"public": func(s string) bool {
+			return rg.MatchString(s)
+		},
+	}).
+		New("gen").Parse(genTemplate)
+	if err != nil {
+		panic(err)
+	}
+
+	tmpl, err = tmpl.New("schema").Parse(schemaTemplate)
+	if err != nil {
+		panic(err)
+	}
+
+	tmpl, err = tmpl.New("lib").Parse(libTemplate)
+	if err != nil {
+		panic(err)
+	}
+
+}
+
+func (pkg *Package) OutputTemplates() {
+	b := &bytes.Buffer{}
+	err := tmpl.ExecuteTemplate(b, "gen", pkg)
+	if err != nil {
+		panic(err)
+	}
+
+	f, err := os.Create(pkg.ActiveFiles[0].AST.Name.Name + "_gen.go")
+	if err != nil {
+		fmt.Println("Could not write schema file")
+	}
+	defer f.Close()
+
+	ib, err := imports.Process(pkg.ActiveFiles[0].AST.Name.Name+"_gen.go", b.Bytes(), nil)
+	if err != nil {
+		fmt.Println("Error in Gen File:", err)
+		f.Write(b.Bytes())
+		return
+	}
+	f.Write(ib)
+
+	w, err := os.Create(pkg.ActiveFiles[0].AST.Name.Name + "_schema.go")
+	if err != nil {
+		panic("Couldn't open schema file for writing: " + err.Error())
+	}
+	b = &bytes.Buffer{}
+	err = tmpl.ExecuteTemplate(b, "schema", pkg)
+	if err != nil {
+		panic(err)
+	}
+	ib, err = imports.Process(pkg.ActiveFiles[0].AST.Name.Name+"_schema.go", b.Bytes(), nil)
+	if err != nil {
+		fmt.Println("Error in Gen File:", err)
+		w.Write(b.Bytes())
+		return
+	}
+	w.Write(ib)
+
+	b = &bytes.Buffer{}
+	err = tmpl.ExecuteTemplate(b, "lib", pkg)
+	if err != nil {
+		panic(err)
+	}
+
+	f, err = os.Create(pkg.ActiveFiles[0].AST.Name.Name + "_lib.go")
+	if err != nil {
+		fmt.Println("Could not write schema file")
+	}
+
+	ib, err = imports.Process(pkg.ActiveFiles[0].AST.Name.Name+"_lib.go", b.Bytes(), nil)
+	if err != nil {
+		fmt.Println("Error in Gen File:", err)
+		f.Write(b.Bytes())
+		f.Close()
+		return
+	}
+	f.Write(ib)
+	f.Close()
 }
