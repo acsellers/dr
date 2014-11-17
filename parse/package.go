@@ -132,6 +132,13 @@ func (r Relationship) ColumnName() string {
 	return ""
 }
 
+func (r Relationship) Name() string {
+	if r.Alias != "" {
+		return r.Alias
+	}
+	return r.Table
+}
+
 func (t Table) Name() string {
 	return t.name
 }

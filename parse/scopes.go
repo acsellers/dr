@@ -708,4 +708,56 @@ func mapperFor{{ .Name }}(c *Conn, includes []string) *mapper{{ .Name }} {
 	{{ end }}
 	return m
 }
-{{ end }}`
+{{ end }}
+
+{{ range $table := .Tables }}
+	{{ if $table.HasRelationship "ParentHasMany" }}
+		{{ range $relate := .Relations }}
+			{{ if $relate.IsHasMany }}
+				func (t {{ $table.Name }}) {{ $relate.Name }}(c *Conn) ([]{{ $relate.Table }}, error) {
+					return t.{{ $relate.Name }}Scope(c).RetrieveAll()
+				}
+				func (t {{ $table.Name }}) {{ $relate.Name }}Scope(c *Conn) {{ $relate.Table }}Scope {
+					return c.{{ $relate.Table }}.{{ $relate.ColumnName }}().Eq(t.{{ $table.PrimaryKeyColumn.Name }})
+				}
+			{{ end }}
+		{{ end }}
+	{{ end }}
+	{{ if $table.HasRelationship "ChildHasMany" }}
+		{{ range $relate := .Relations }}
+			{{ if $relate.IsChildHasMany }}
+				func (t {{ $table.Name }}) {{ $relate.Name }}(c *Conn) ({{ $relate.Table }}, error) {
+					return t.{{ $relate.Name }}Scope(c).Retrieve()
+				}
+				func (t {{ $table.Name }}) {{ $relate.Name }}Scope(c *Conn) {{ $relate.Table }}Scope {
+					return c.{{ $relate.Table }}.Eq(t.{{ $relate.Name }}ID)
+				}
+			{{ end }}
+		{{ end }}
+	{{ end }}
+	{{ if $table.HasRelationship "HasOne" }}
+		{{ range $relate := .Relations }}
+			{{ if $relate.IsHasOne }}
+				func (t {{ $table.Name }}) {{ $relate.Name }}(c *Conn) ({{ $relate.Table }}, error) {
+					return t.{{ $relate.Name }}Scope(c).Retrieve()
+				}
+				func (t {{ $table.Name }}) {{ $relate.Name }}Scope(c *Conn) {{ $relate.Table }}Scope {
+					return c.{{ $relate.Table }}.{{ $relate.ColumnName }}().Eq(t.{{ $table.PrimaryKeyColumn.Name }})
+				}
+			{{ end }}
+		{{ end }}
+	{{ end }}
+	{{ if $table.HasRelationship "BelongsTo" }}
+		{{ range $relate := .Relations }}
+			{{ if $relate.IsBelongsTo }}
+				func (t {{ $table.Name }}) {{ $relate.Name }}(c *Conn) ({{ $relate.Table }}, error) {
+					return t.{{ $relate.Name }}Scope(c).Retrieve()
+				}
+				func (t {{ $table.Name }}) {{ $relate.Name }}Scope(c *Conn) {{ $relate.Table }}Scope {
+					return c.{{ $relate.Table }}.Eq(t.{{ $relate.Name }}ID)
+				}
+			{{ end }}
+		{{ end }}
+	{{ end }}
+{{ end }}
+`
