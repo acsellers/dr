@@ -35,10 +35,13 @@ func Open(driverName, dataSourceName string) (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	{{ range .Tables }}
-	c.{{ .Name }} = New{{ .Name }}Scope(c)
-	{{ end }}
+	c.initScopes()
 	return c, nil
+}
+
+func (c *Conn) initScopes() {
+	{{ range .Tables }}
+	c.{{ .Name }} = New{{ .Name }}Scope(c){{ end }}
 }
 
 func (c *Conn) Clone() *Conn {
@@ -49,9 +52,7 @@ func (c *Conn) Clone() *Conn {
 		returning: c.returning,
 		Log: c.Log,
 	}
-	{{ range .Tables }}
-	c2.{{ .Name }} = New{{ .Name }}Scope(c2)
-	{{ end }}
+	c2.initScopes()
 	return c2
 }
 
@@ -783,5 +784,115 @@ func deleteRecord(c *Conn, val interface{}, name, pkname string) error {
 
 }
 
+func scanNullInt(i interface{}) (int64, bool) {
+	if i == nil {
+		return 0, false
+	}
+	if is, ok := i.(int64); ok {
+		return is, true
+	}
+	if b, ok := i.([]byte); ok {
+		pi, err := strconv.ParseInt(string(b), 10, 64)
+		if err != nil {
+			return 0, false
+		}
+		return pi, true
+	}
+	return 0, false
+}
+
+func scanInt(i interface{}) int64 {
+	pi, _ := scanNullInt(i)
+	return pi
+}
+
+func scanNullString(i interface{}) (string, bool) {
+	if i == nil {
+		return "", false
+	} else if s, ok := i.(string); ok {
+		return s, true
+	} else if s, ok := i.([]byte); ok {
+		return string(s), true
+	}
+	return "", false
+}
+
+func scanString(i interface{}) string {
+	s, _ := scanNullString(i)
+	return s
+}
+
+func scanNullBool(i interface{}) (bool, bool) {
+	if i == nil {
+		return false, false
+	} else if b, ok := i.(bool); ok {
+		return b, true
+	} else if i, ok := i.(int64); ok {
+		return i != 0, true
+	}
+	return false, false
+}
+
+func scanBool(i interface{}) bool {
+	b, _ := scanNullBool(i)
+	return b
+}
+
+func scanNullFloat64(i interface{}) (float64, bool) {
+	if i == nil {
+		return 0.0, false
+	} else if f, ok := i.(float64); ok {
+		return f, true
+	} else if pi, ok := i.(int64); ok {
+		return float64(pi), true
+	} else if b, ok := i.([]byte); ok {
+		f, err := strconv.ParseFloat(string(b), 64)
+		if err != nil {
+			return 0.0, false
+		}
+		return f, true
+	}
+	return 0.0, false
+}
+
+func scanFloat64(i interface{}) float64 {
+	f, _ := scanNullFloat64(i)
+	return f
+}
+
+func scanNullFloat32(i interface{}) (float32, bool) {
+	if i == nil {
+		return 0.0, false
+	} else if f, ok := i.(float32); ok {
+		return f, true
+	} else if pi, ok := i.(int64); ok {
+		return float32(pi), true
+	} else if b, ok := i.([]byte); ok {
+		f, err := strconv.ParseFloat(string(b), 32)
+		if err != nil {
+			return 0.0, false
+		}
+		return float32(f), true
+	}
+	return 0.0, false
+}
+
+func scanFloat32(i interface{}) float32{
+	f, _ := scanNullFloat32(i)
+	return f
+}
+
+func scanNullTime(i interface{}) (time.Time, bool) {
+	if i == nil {
+		return time.Time{}, false
+	} else if t, ok := i.(time.Time); ok {
+		return t, true
+	}
+	return time.Time{}, false
+}
+func scanTime(i interface{}) time.Time {
+	t, _ := scanNullTime(i)
+	return t
+}
 
 `

@@ -404,11 +404,20 @@ var tmpl *template.Template
 func init() {
 	rg := regexp.MustCompile(`^[A-Z].*`)
 	var err error
+	index := -1
 	tmpl, err = template.New("dr").
 		Funcs(template.FuncMap{
 		"plural": inflections.Pluralize,
 		"public": func(s string) bool {
 			return rg.MatchString(s)
+		},
+		"incr": func() int {
+			index++
+			return index
+		},
+		"reset": func() string {
+			index = -1
+			return ""
 		},
 	}).
 		New("gen").Parse(genTemplate)
