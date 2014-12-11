@@ -1,65 +1,151 @@
 package parse
 
 var genTemplate = `{{ define "int_mapper" }}
-	{{ if .MustNull }}
-		if i, ok := scanNullInt(v); ok {
-			temp := int(i)
-			(*m.Current).{{ .Name }} = &temp
-		}
-	{{ else }}
-		(*m.Current).{{ .Name }} = int(scanInt(v))
-	{{ end }}
+	if v == nil {
+		// do nothing, use zero value
+	} else if s, ok := v.(int64); ok {
+		{{ if .MustNull }}
+			var temp int
+			temp = int(s)
+			(*m.Mapper.Current).{{ .Name }} = &temp
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = int(s)
+		{{ end }}
+	} else if b, ok := v.([]byte); ok {
+		i, err := strconv.Atoi(string(b))
+		{{ if .MustNull }}
+			(*m.Mapper.Current).ID = &i
+		{{ else }}
+			(*m.Mapper.Current).ID = i
+		{{ end }}
+		return err
+	}
 	return nil
 {{ end }}
 {{ define "string_mapper" }}
-	{{ if .MustNull }}
-		if i, ok := scanNullString(v); ok {
-			(*m.Current).{{ .Name }} = &i
-		}
-	{{ else }}
-		(*m.Current).{{ .Name }} = scanString(v)
-	{{ end }}
+	if v == nil {
+		// do nothing, use zero value
+	} else if s, ok := v.(string); ok {
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &s
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = s
+		{{ end }}
+	} else if s, ok := v.([]byte); ok {
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &string(s)
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = string(s)
+		{{ end }}
+	}
+
 	return nil
 {{ end }}
 {{ define "time_mapper" }}
-	{{ if .MustNull }}
-		if i, ok := scanNullTime(v); ok {
-			(*m.Current).{{ .Name }} = &i
-		}
-	{{ else }}
-		(*m.Current).{{ .Name }} = scanTime(v)
-	{{ end }}
+	if v == nil {
+		// do nothing, use zero value
+	} else if s, ok := v.(time.Time); ok {
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &s
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = s
+		{{ end }}
+	}
+
 	return nil
 {{ end }}
 {{ define "bool_mapper" }}
-	{{ if .MustNull }}
-		if i, ok := scanNullBool(v); ok {
-			(*m.Current).{{ .Name }} = &i
-		}
-	{{ else }}
-		(*m.Current).{{ .Name }} = scanBool(v)
-	{{ end }}
+	if v == nil {
+		// it is false or null, the zero values
+	} else if b, ok := v.(bool); ok {
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &b
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = b
+		{{ end }}
+	} else if i, ok := v.(int64); ok {
+		{{ if .MustNull }}
+			var tb bool
+			if i == 0 {
+				(*m.Mapper.Current).{{ .Name }} = &tb
+			} else {
+				tb = true
+				(*m.Mapper.Current).{{ .Name }} = &tb
+			}
+		{{ else }}
+			if i != 0 {
+				(*m.Mapper.Current).{{ .Name }} = true
+			}
+		{{ end }}
+	}
+
 	return nil
 {{ end }}
 {{ define "float64_mapper" }}
-	{{ if .MustNull }}
-		if i, ok := scanNullFloat64(v); ok {
-			(*m.Current).{{ .Name }} = &i
+	if v == nil {
+		// it is false or null, the zero values
+	} else if f, ok := v.(float64); ok {
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &f
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = f
+		{{ end }}
+	} else if i, ok := v.(int64); ok {
+		tf := float64(i)
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &tf
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = tf
+		{{ end }}
+	} else if i, ok := v.([]byte); ok {
+		f, err := strconv.ParseFloat(string(i), 64)
+		if err != nil {
+			return err
 		}
-	{{ else }}
-		(*m.Current).{{ .Name }} = scanFloat64(v)
-	{{ end }}
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &f
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = f
+		{{ end }}
+	}	else {
+		return fmt.Errorf("Value not recognized as float64, received %v", v)
+	}
+
 	return nil
 {{ end }}
 
 {{ define "float32_mapper" }}
-	{{ if .MustNull }}
-		if i, ok := scanNullFloat32(v); ok {
-			(*m.Current).{{ .Name }} = &i
+	if v == nil {
+		// it is false or null, the zero values
+	} else if f, ok := v.(float64); ok {
+		mf := float32(f)
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &mf
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = mf
+		{{ end }}
+	} else if i, ok := v.(int64); ok {
+		tf := float32(i)
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &tf
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = tf
+		{{ end }}
+	} else if i, ok := v.([]byte); ok {
+		f, err := strconv.ParseFloat(string(i), 32)
+		if err != nil {
+			return err
 		}
-	{{ else }}
-		(*m.Current).{{ .Name }} = scanFloat32(v)
-	{{ end }}
+		sf := float32(f)
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &sf
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = sf
+		{{ end }}
+	}	else {
+		return fmt.Errorf("Value not recognized as float32, received %v", v)
+	}
+
 	return nil
 {{ end }}
 /*
@@ -504,6 +590,36 @@ func (scope {{ .Name }}Scope) Or(scopes ...Scope) {{ .Name }}Scope {
 			scope.isDistinct = false
 			return scope
 		}
+
+		type mapper{{ $table.Name }}To{{ $column.Name }} struct {
+			Mapper *mapper{{ $table.Name }}
+		}
+
+		{{ if eq $column.GoType "int" }}
+			func (m mapper{{ $table.Name }}To{{ $column.Name }}) Scan(v interface{}) error {
+				{{ template "int_mapper" $column }}
+			}
+		{{ else if eq $column.GoType "string" }}
+			func (m mapper{{ $table.Name }}To{{ $column.Name }}) Scan(v interface{}) error {
+				{{ template "string_mapper" $column }}
+			}
+		{{ else if eq $column.GoType "&{time Time}" }}
+			func (m mapper{{ $table.Name }}To{{ $column.Name }}) Scan(v interface{}) error {
+				{{ template "time_mapper" $column }}
+			}
+		{{ else if eq $column.GoType "bool" }}
+			func (m mapper{{ $table.Name }}To{{ $column.Name }}) Scan(v interface{}) error {
+				{{ template "bool_mapper" $column }}
+			}
+		{{ else if eq $column.GoType "float64" }}
+			func (m mapper{{ $table.Name }}To{{ $column.Name }}) Scan(v interface{}) error {
+				{{ template "float64_mapper" $column }}
+			}
+		{{ else if eq $column.GoType "float32" }}
+			func (m mapper{{ $table.Name }}To{{ $column.Name }}) Scan(v interface{}) error {
+				{{ template "float32_mapper" $column }}
+			}
+		{{ end }}
 	{{ end }}
 	{{ if $column.Subrecord }}
 		/*
@@ -561,45 +677,21 @@ func (scope {{ .Name }}Scope) Or(scopes ...Scope) {{ .Name }}Scope {
 {{ end }}
 
 type mapper{{ .Name }} struct {
-	Current   **{{ .Name }}
-	Columns   []string
-	Scanners  []interface{}
-	indexes   []int
-	scanIndex int
-}
-
-func (m mapper{{ .Name }}) Scan(v interface{}) error {
-	switch m.indexes[m.scanIndex] {
-	{{ reset }}
-	{{ range $column := .Columns }}
-	case {{ incr }}:
-		m.scanIndex++
-		{{ if $column.SimpleType }}
-			{{ if eq $column.GoType "int" }}
-				{{ template "int_mapper" $column }}
-			{{ else if eq $column.GoType "string" }}
-				{{ template "string_mapper" $column }}
-			{{ else if eq $column.GoType "&{time Time}" }}
-				{{ template "time_mapper" $column }}
-			{{ else if eq $column.GoType "bool" }}
-				{{ template "bool_mapper" $column }}
-			{{ else if eq $column.GoType "float64" }}
-				{{ template "float64_mapper" $column }}
-			{{ else if eq $column.GoType "float32" }}
-				{{ template "float32_mapper" $column }}
-			{{ end }}
-		{{ end }}
-	{{ end }}
-	default:
-		return nil
-	}
+	Current  **{{ .Name }}
+	Columns  []string
+	Scanners []interface{}
 }
 
 func mapperFor{{ .Name }}(c *Conn, includes []string) *mapper{{ .Name }} {
 	m := &mapper{{ .Name }}{}
 	m.Columns = []string{ {{ range $column := .Columns }} {{ if $column.SimpleType }} c.SQLTable("{{ $table.Name }}") + "." + c.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}"), {{ end }} {{ end }} }
-	{{ reset }}
-	m.indexes= []int{ {{ range $x, $column := .Columns }}{{ if $column.SimpleType }}{{ incr }},{{ end }}{{ end }} }
+	m.Scanners = []interface{}{
+		{{ range $column := .Columns }}
+			{{ if $column.SimpleType }}
+				mapper{{ $table.Name }}To{{ $column.Name }}{m},
+			{{ end }}
+		{{ end }}
+	}
 
 	{{ range $column := .Columns }}
 		{{ if $column.Subrecord }}
@@ -608,14 +700,12 @@ func mapperFor{{ .Name }}(c *Conn, includes []string) *mapper{{ .Name }} {
 					{{ range $subcolumn := $column.Subcolumns }}c.SQLTable("{{ $table.Name }}") + "." + c.SQLColumn("{{ $table.Name }}", "{{ $subcolumn.Name }}"),{{ end }}
 				)
 
-				m.indexes = append(m.Scanners,{{ range $subcolumn := $column.Subcolumns }}{{ incr }},{{ end }})
+				m.Scanners = append(m.Scanners,
+					{{ range $subcolumn := $column.Subcolumns }}mapper{{ $table.Name }}To{{ $subcolumn.Name }}{m},{{ end }}
+				)
 			}
 		{{ end }}
 	{{ end }}
-	m.Scanners = make([]interface{}, len(m.indexes))
-	for i := range m.Scanners {
-		m.Scanners[i] = m.Scan
-	}
 	return m
 }
 {{ end }}
