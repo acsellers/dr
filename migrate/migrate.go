@@ -4,6 +4,7 @@ package migrate
 
 import (
 	"database/sql"
+	"fmt"
 	"io/ioutil"
 	"log"
 
@@ -76,6 +77,7 @@ func (d *Database) ForeignKeysSatisfied(table *schema.Table) bool {
 }
 
 func (d *Database) UpToDate() (bool, error) {
+	needUpdate := true
 TableIter:
 	for _, table := range d.Schema.Tables {
 		d.Log.Println("Checking For Table:", table.Name)
@@ -88,6 +90,7 @@ TableIter:
 		if !exists {
 			d.Log.Println("Non-Existant Table:", table.Name)
 			d.NewTables = append(d.NewTables, table)
+			needUpdate = false
 			continue
 		}
 
@@ -103,12 +106,27 @@ TableIter:
 				d.Log.Println("Non-Existant Column", col.Name, "for Table", table.Name)
 				d.Log.Println("Setting Table", table.Name, "to have field(s) added")
 				d.ModifiedTables = append(d.ModifiedTables, table)
+				needUpdate = false
 				continue TableIter
 			}
 		}
+		for _, index := range table.Index {
+			ok, err := d.HasIndex(table, index)
+			if err != nil {
+				return false, fmt.Errorf("Error checking index: %v", err)
+			}
+			if !ok {
+				d.Log.Println("Non-Existant Index", index.Columns, "for Table", table.Name)
+				d.Log.Println("Setting Table", table.Name, "to have index(s) added")
+				d.ModifiedTables = append(d.ModifiedTables, table)
+				needUpdate = false
+				continue TableIter
+			}
+		}
+
 		d.Log.Println("Table", table.Name, "is up to date")
 	}
-	return false, nil
+	return needUpdate, nil
 }
 
 func (d *Database) Migrate() error {
@@ -143,6 +161,11 @@ func (d *Database) Migrate() error {
 
 	for len(wait) > 0 {
 		if d.ForeignKeysSatisfied(wait[0]) {
+			err = d.CreateTable(wait[0])
+			if err != nil {
+				return err
+			}
+			wait = wait[1:]
 		} else {
 			wait = append(wait[1:], wait[0])
 		}

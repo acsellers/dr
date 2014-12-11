@@ -22,7 +22,7 @@ func (g *GenericDB) HasIndex(table *schema.Table, index schema.Index) (bool, err
 	return false, nil
 }
 func (g *GenericDB) CreateIndex(table *schema.Table, index schema.Index) error {
-	return nil
+	return g.Specific.CreateIndex(table, index)
 }
 
 func (*GenericDB) getIndexName(*schema.Table, schema.Index) (string, error) {
@@ -135,6 +135,16 @@ func (g *GenericDB) UpdateTable(table *schema.Table) error {
 				g.Log.Println("Error when adding column", err)
 				return err
 			}
+		}
+	}
+
+	for _, index := range table.Index {
+		ok, err := g.HasIndex(table, index)
+		if err != nil {
+			return fmt.Errorf("Error checking index: %v", err)
+		}
+		if !ok {
+			g.CreateIndex(table, index)
 		}
 	}
 
@@ -404,7 +414,7 @@ func (p *PostgresDB) getIndexName(table *schema.Table, index schema.Index) (stri
 from pg_class t, pg_class i, pg_index ix, pg_attribute a
 where t.oid = ix.indrelid and i.oid = ix.indexrelid
 and a.attrelid = t.oid and a.attnum = ANY(ix.indkey)
-and t.relkind = 'r' and t.relname like '$1'
+and t.relkind = 'r' and t.relname like $1
 group by t.relname, i.relname
 order by t.relname, i.relname`
 	rows, err := p.DB.Query(sql, p.Convert.SQLTable(table.Name))
@@ -500,4 +510,8 @@ func (m *MysqlDB) getIndexName(table *schema.Table, index schema.Index) (string,
 	}
 	rows.Close()
 	return "", nil
+}
+
+func (m *MysqlDB) CreateIndex(table *schema.Table, index schema.Index) error {
+	return nil
 }
