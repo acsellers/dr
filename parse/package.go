@@ -77,6 +77,7 @@ type Table struct {
 	cols      []Column
 	Pkg       *Package
 	Relations []Relationship
+	Indexes   []Index
 }
 
 func (t Table) ColumnByName(colName string) (Column, bool) {
@@ -86,6 +87,10 @@ func (t Table) ColumnByName(colName string) (Column, bool) {
 		}
 	}
 	return Column{}, false
+}
+
+type Index struct {
+	Columns []string
 }
 
 type Relationship struct {

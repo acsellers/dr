@@ -21,6 +21,7 @@ var (
 	mixinDef     = regexp.MustCompile(`type ([a-zA-Z0-9]+) mixin {`)
 	tableDef     = regexp.MustCompile(`type ([a-zA-Z0-9]+) table {`)
 	relationDef  = regexp.MustCompile(`relation {`)
+	indexDef     = regexp.MustCompile(`index {`)
 	codeStart    = regexp.MustCompile(`^[a-zA-Z\[]`)
 )
 
@@ -185,7 +186,33 @@ func (pkg *Package) processForRelations(table Table) Table {
 				}
 			}
 		}
+
+		for i, field := range st.Fields.List {
+			if len(field.Names) == 1 && field.Names[0].Name == "DRIndex" {
+				if rst, ok := field.Type.(*ast.StructType); ok {
+					for _, rfield := range rst.Fields.List {
+						ix := Index{}
+						if len(rfield.Names) > 0 {
+							fmt.Println("Table:", table.Name(), "Compound Index:", rfield.Names)
+							for _, name := range rfield.Names {
+								ix.Columns = append(ix.Columns, name.Name)
+							}
+						} else {
+							fmt.Println("Table:", table.Name(), "Index:", rfield.Type)
+							ix.Columns = append(ix.Columns, fmt.Sprint(rfield.Type))
+						}
+						table.Indexes = append(table.Indexes, ix)
+					}
+				}
+				if i > 0 {
+					st.Fields.List = append(st.Fields.List[:i], st.Fields.List[i+1:]...)
+				} else {
+					st.Fields.List = st.Fields.List[1:]
+				}
+			}
+		}
 	}
+
 	return table
 }
 
@@ -202,7 +229,7 @@ func (pkg *Package) linkRelations(table Table) Table {
 		}
 
 		if _, ok := table.ColumnByName(relate.Table + "ID"); !ok {
-			fmt.Println(table.name, relate, len(table.cols))
+			// fmt.Println(table.name, relate, len(table.cols))
 			relate.Type = "HasOne"
 			relate.ParentName = table.name
 			relate.ChildName = relate.Table
@@ -214,7 +241,7 @@ func (pkg *Package) linkRelations(table Table) Table {
 		parent, ok := pkg.TableByName(relate.Table)
 		// ghetto error checking
 		if !ok {
-			panic(fmt.Sprintf("Table named %s doesn't exist", relate.Table))
+			panic(fmt.Sprintf("Table named %s for %s doesn't exist", relate.Table, table.Name()))
 		}
 
 		// child relations
@@ -263,6 +290,9 @@ func (pkg *Package) processFile(fset *token.FileSet, file *os.File) error {
 		case relationDef.MatchString(text):
 			text = "DRRelation struct {"
 			inRelation = 1
+		case indexDef.MatchString(text):
+			text = "DRIndex struct {"
+			inRelation = 0
 		case inRelation > 0 && stripped == "}":
 			inRelation = 0
 		case inRelation > 0 && codeStart.MatchString(stripped):

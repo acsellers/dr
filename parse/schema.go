@@ -51,6 +51,18 @@ var Schema = schema.Schema{
 						{{ end }}
 					{{ end }}
 				},
+				Index: []schema.Index{
+					schema.Index{
+						Columns: []string{"{{ $table.PrimaryKeyColumn.Name }}"},
+					},
+					{{ range $index := $table.Indexes }}
+						schema.Index{
+							Columns: []string{ {{ range .Columns }}
+								"{{ . }}",{{ end }}
+							},
+						},
+					{{ end }}
+				},
 			},
 		{{ end }}
 	},
@@ -123,6 +135,11 @@ func init() {
 }
 
 {{ range $table := .Tables }}
+
+func (t {{ $table.Name }}) ToScope(c *Conn) {{ $table.Name }}Scope {
+	return c.{{ $table.Name }}.{{ .PrimaryKeyColumn.Name }}().Eq(t.{{ .PrimaryKeyColumn.Name }})
+}
+
 func (t *{{ $table.Name }}) Save(c *Conn) error {
 
 	// check the primary key vs the zero value, if they match then
