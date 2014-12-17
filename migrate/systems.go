@@ -203,6 +203,7 @@ type SqliteDB struct {
 }
 
 func (s *SqliteDB) CreateTable(table *schema.Table) error {
+	s.GenericDB.Specific = s
 	s.GenericDB.PrimaryKeyDef = "%s SERIAL PRIMARY KEY"
 	s.GenericDB.LengthableColumns = s.LengthableColumns()
 	return s.GenericDB.CreateTable(table)
@@ -393,6 +394,7 @@ func (p *PostgresDB) HasColumn(table *schema.Table, col *schema.Column) (bool, e
 }
 
 func (p *PostgresDB) CreateTable(table *schema.Table) error {
+	p.GenericDB.Specific = p
 	p.GenericDB.PrimaryKeyDef = "%s SERIAL PRIMARY KEY"
 	p.GenericDB.LengthableColumns = p.LengthableColumns()
 	return p.GenericDB.CreateTable(table)
@@ -478,6 +480,7 @@ func (*MysqlDB) LengthableColumns() map[string]bool {
 }
 
 func (m *MysqlDB) CreateTable(table *schema.Table) error {
+	m.GenericDB.Specific = m
 	m.GenericDB.PrimaryKeyDef = "%s SERIAL PRIMARY KEY"
 	m.GenericDB.LengthableColumns = m.LengthableColumns()
 	return m.GenericDB.CreateTable(table)
