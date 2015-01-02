@@ -21,10 +21,18 @@ type Package struct {
 	Subrecords  []Subrecord
 	ActiveFiles []ActiveFile
 	Funcs       map[string][]Func
+	name        *string
 }
 
-func (p Package) Name() string {
-	return p.ActiveFiles[0].AST.Name.Name
+func (p *Package) Name() string {
+	if p.name == nil {
+		p.name = &p.ActiveFiles[0].AST.Name.Name
+	}
+	return *p.name
+}
+
+func (p *Package) SetName(n string) {
+	p.name = &n
 }
 
 func (p Package) TableByName(tableName string) (Table, bool) {
@@ -471,18 +479,26 @@ func (pkg *Package) OutputTemplates() {
 	}
 	w.Write(ib)
 
-	b = &bytes.Buffer{}
-	err = tmpl.ExecuteTemplate(b, "lib", pkg)
+	pkg.WriteLibraryFiles()
+}
+
+func (pkg *Package) WriteLibraryFiles() {
+	if _, err := os.Stat(pkg.Name() + "_lib.go"); err == nil {
+		fmt.Println("Library file already written")
+		return
+	}
+	b := &bytes.Buffer{}
+	err := tmpl.ExecuteTemplate(b, "lib", pkg)
 	if err != nil {
 		panic(err)
 	}
 
-	f, err = os.Create(pkg.ActiveFiles[0].AST.Name.Name + "_lib.go")
+	f, err := os.Create(pkg.Name() + "_lib.go")
 	if err != nil {
 		fmt.Println("Could not write schema file")
 	}
 
-	ib, err = imports.Process(pkg.ActiveFiles[0].AST.Name.Name+"_lib.go", b.Bytes(), nil)
+	ib, err := imports.Process(pkg.Name()+"_lib.go", b.Bytes(), nil)
 	if err != nil {
 		fmt.Println("Error in Gen File:", err)
 		f.Write(b.Bytes())
@@ -491,4 +507,22 @@ func (pkg *Package) OutputTemplates() {
 	}
 	f.Write(ib)
 	f.Close()
+}
+
+func (pkg *Package) WriteStarterFile() {
+	if _, err := os.Stat(pkg.Name() + ".gp"); err == nil {
+		fmt.Println("Starter file already written")
+		return
+	}
+
+	f, err := os.Create(pkg.Name() + ".gp")
+	if err != nil {
+		fmt.Println("Could not write schema file")
+	}
+	defer f.Close()
+
+	err = tmpl.ExecuteTemplate(f, "starter_file", pkg)
+	if err != nil {
+		panic(err)
+	}
 }
