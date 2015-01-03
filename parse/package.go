@@ -484,7 +484,6 @@ func (pkg *Package) OutputTemplates() {
 
 func (pkg *Package) WriteLibraryFiles() {
 	if _, err := os.Stat(pkg.Name() + "_lib.go"); err == nil {
-		fmt.Println("Library file already written")
 		return
 	}
 	b := &bytes.Buffer{}
@@ -507,6 +506,33 @@ func (pkg *Package) WriteLibraryFiles() {
 	}
 	f.Write(ib)
 	f.Close()
+
+	filename := "db_config.go"
+	if _, err = os.Stat(filename); err == nil {
+		fmt.Println("Library file already written")
+		return
+	}
+	b = &bytes.Buffer{}
+	err = tmpl.ExecuteTemplate(b, "config", pkg)
+	if err != nil {
+		panic(err)
+	}
+
+	f, err = os.Create(filename)
+	if err != nil {
+		fmt.Println("Could not write schema file")
+	}
+
+	ib, err = imports.Process(filename, b.Bytes(), nil)
+	if err != nil {
+		fmt.Println("Error in Gen File:", err)
+		f.Write(b.Bytes())
+		f.Close()
+		return
+	}
+	f.Write(ib)
+	f.Close()
+
 }
 
 func (pkg *Package) WriteStarterFile() {

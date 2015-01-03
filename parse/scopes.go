@@ -37,6 +37,7 @@ func Open(driverName, dataSourceName string) (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+	c.AppConfig = NewAppConfig(driverName)
 	{{ range .Tables }}
 	c.{{ .Name }} = New{{ .Name }}Scope(c)
 	{{ end }}
