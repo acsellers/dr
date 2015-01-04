@@ -204,14 +204,14 @@ type SqliteDB struct {
 
 func (s *SqliteDB) CreateTable(table *schema.Table) error {
 	s.GenericDB.Specific = s
-	s.GenericDB.PrimaryKeyDef = "%s SERIAL PRIMARY KEY"
+	s.GenericDB.PrimaryKeyDef = "%s INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT"
 	s.GenericDB.LengthableColumns = s.LengthableColumns()
 	return s.GenericDB.CreateTable(table)
 }
 
 func (s *SqliteDB) UpdateTable(table *schema.Table) error {
 	s.GenericDB.Specific = s
-	s.GenericDB.PrimaryKeyDef = "%s SERIAL PRIMARY KEY"
+	s.GenericDB.PrimaryKeyDef = "%s INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT"
 	s.GenericDB.LengthableColumns = s.LengthableColumns()
 	return s.GenericDB.UpdateTable(table)
 }
