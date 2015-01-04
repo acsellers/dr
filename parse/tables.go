@@ -54,6 +54,11 @@ func (pkg *Package) ParseSrc(src ...*os.File) error {
 		pkg.Tables[i] = pkg.linkRelations(table)
 	}
 
+	// inject extra code
+	for i, table := range pkg.Tables {
+		pkg.Tables[i] = pkg.injectFields(table)
+	}
+
 	// Write out processed files
 	for _, active := range pkg.ActiveFiles {
 		f, err := os.Create(active.DefName())
@@ -261,6 +266,16 @@ func (pkg *Package) linkRelations(table Table) Table {
 		table.Relations[i] = relate
 	}
 
+	return table
+}
+
+func (pkg *Package) injectFields(table Table) Table {
+	if st, ok := table.Spec().Type.(*ast.StructType); ok {
+		st.Fields.List = append(st.Fields.List, &ast.Field{
+			Names: []*ast.Ident{ast.NewIdent("cached_conn")},
+			Type:  ast.NewIdent("*Conn"),
+		})
+	}
 	return table
 }
 
