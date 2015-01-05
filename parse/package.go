@@ -176,6 +176,7 @@ func (t *Table) Columns() []Column {
 					col.Tag = reflect.StructTag(field.Tag.Value[1 : len(field.Tag.Value)-1])
 				}
 				if se, ok := field.Type.(*ast.StarExpr); ok {
+
 					col.MustNull = true
 					col.GoType = fmt.Sprint(se.X)
 				}
@@ -200,7 +201,7 @@ func (t *Table) Columns() []Column {
 					col.GoType = fmt.Sprint(at.X)
 				case *ast.ArrayType:
 					col.Array = true
-					col.GoType = fmt.Sprint(at.Elt)
+					col.GoType = "[]" + fmt.Sprint(at.Elt)
 				}
 				t.cols = append(t.cols, col)
 			}
@@ -280,6 +281,8 @@ func (c Column) SimpleType() bool {
 	case "float32", "float64":
 		return true
 	case "bool":
+		return true
+	case "[]byte":
 		return true
 	default:
 		return false
@@ -363,6 +366,8 @@ func (c Column) Type() string {
 		return "double precision"
 	case "bool":
 		return "boolean"
+	case "[]byte":
+		return "blob"
 	default:
 		return "varchar"
 	}

@@ -990,4 +990,17 @@ package {{ .Name }}
 	return nil
 {{ end }}
 
+{{ define "byte_mapper" }}
+	if v == nil {
+		// do nothing, use zero value
+	} else if s, ok := v.([]byte); ok {
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &s
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = s
+		{{ end }}
+	}
+
+	return nil
+{{ end }}
 `

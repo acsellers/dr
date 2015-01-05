@@ -5,7 +5,7 @@ type User table {
   Name string
   Email string
   PermissionLevel int
-  CryptPassword string
+  CryptPassword []byte
 
   index {
     Email

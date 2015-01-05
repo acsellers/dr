@@ -16,6 +16,7 @@ func TestUserSave(t *testing.T) {
 		Name:            "Andrew",
 		Email:           "andrew@example.com",
 		PermissionLevel: 2,
+		CryptPassword:   []byte("helloworld"),
 	}
 	err := u.Save(c)
 	if err != nil {
@@ -43,6 +44,9 @@ func TestUserSave(t *testing.T) {
 	if u2.PermissionLevel != u.PermissionLevel {
 		t.Fatal("PermissionLevel Compare", u.PermissionLevel, u2.PermissionLevel)
 	}
+	if string(u2.CryptPassword) != string(u.CryptPassword) {
+		t.Fatal("CryptPassword Compare", u.CryptPassword, u2.CryptPassword)
+	}
 
 	u2, err = c.User.Name().Eq(u.Name).Retrieve()
 	if err != nil {
@@ -56,6 +60,9 @@ func TestUserSave(t *testing.T) {
 	}
 	if u2.PermissionLevel != u.PermissionLevel {
 		t.Fatal("PermissionLevel Compare", u.PermissionLevel, u2.PermissionLevel)
+	}
+	if string(u2.CryptPassword) != string(u.CryptPassword) {
+		t.Fatal("CryptPassword Compare", u.CryptPassword, u2.CryptPassword)
 	}
 
 	u2, err = c.User.Email().Eq(u.Email).Retrieve()
@@ -71,11 +78,14 @@ func TestUserSave(t *testing.T) {
 	if u2.PermissionLevel != u.PermissionLevel {
 		t.Fatal("PermissionLevel Compare", u.PermissionLevel, u2.PermissionLevel)
 	}
+	if string(u2.CryptPassword) != string(u.CryptPassword) {
+		t.Fatal("CryptPassword Compare", u.CryptPassword, u2.CryptPassword)
+	}
 
 }
 
 func openTestConn() *Conn {
-	c, err := Open("sqlite3", "test.db")
+	c, err := Open("sqlite3", ":memory:")
 	if err != nil {
 		panic(err)
 	}

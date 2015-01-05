@@ -244,6 +244,7 @@ func (scope {{ .Name }}Scope) Retrieve() ({{ .Name }}, error) {
 	if err != nil {
 		err = fmt.Errorf("SQL: %s\n%s", ss, err.Error())
 	}
+	val.cached_conn = scope.conn
 	return *val, err
 
 }
@@ -269,6 +270,7 @@ func (scope {{ .Name }}Scope) RetrieveAll() ([]{{ .Name }}, error) {
 		if err != nil {
 			return []{{ .Name }}{}, err
 		}
+		temp.cached_conn = scope.conn
 		vals = append(vals, *temp)
 	}
 
@@ -505,6 +507,10 @@ func (scope {{ .Name }}Scope) Or(scopes ...Scope) {{ .Name }}Scope {
 			func (m mapper{{ $table.Name }}To{{ $column.Name }}) Scan(v interface{}) error {
 				{{ template "float32_mapper" $column }}
 			}
+		{{ else if eq $column.GoType "[]byte" }}
+			func (m mapper{{ $table.Name }}To{{ $column.Name }}) Scan(v interface{}) error {
+				{{ template "byte_mapper" $column }}
+			}
 		{{ end }}
 	{{ end }}
 	{{ if $column.Subrecord }}
@@ -555,6 +561,10 @@ func (scope {{ .Name }}Scope) Or(scopes ...Scope) {{ .Name }}Scope {
 				{{ else if eq $subcolumn.GoType "&{time Time}" }}
 					func (m mapper{{ $table.Name }}To{{ $subcolumn.Name }}) Scan(v interface{}) error {
 						{{ template "time_mapper" $subcolumn }}
+					}
+				{{ else if eq $column.GoType "[]byte" }}
+					func (m mapper{{ $table.Name }}To{{ $column.Name }}) Scan(v interface{}) error {
+						{{ template "byte_mapper" $column }}
 					}
 				{{ end }}
 			{{ end }}
