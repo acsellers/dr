@@ -1,0 +1,15 @@
+language: go
+
+go:
+  - 1.4
+  - 1.3
+
+install:
+  go get github.com/acsellers/inflections
+  go get github.com/mattn/go-sqlite3
+  go install github.com/acsellers/dr
+
+script:
+  cd example/blog
+  dr build
+  go test
