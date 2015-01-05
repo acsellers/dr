@@ -13,10 +13,12 @@ func TestUserSave(t *testing.T) {
 	c := openTestConn()
 
 	u := User{
-		Name:            "Andrew",
-		Email:           "andrew@example.com",
-		PermissionLevel: 2,
-		CryptPassword:   []byte("helloworld"),
+		Name:                "Andrew",
+		Email:               "andrew@example.com",
+		PermissionLevel:     2,
+		CryptPassword:       []byte("helloworld"),
+		ArticleCompensation: 4.5,
+		TotalCompensation:   1234.45,
 	}
 	err := u.Save(c)
 	if err != nil {
@@ -47,6 +49,12 @@ func TestUserSave(t *testing.T) {
 	if string(u2.CryptPassword) != string(u.CryptPassword) {
 		t.Fatal("CryptPassword Compare", u.CryptPassword, u2.CryptPassword)
 	}
+	if u2.ArticleCompensation != u.ArticleCompensation {
+		t.Fatal("ArticleCompensation Compare", u.ArticleCompensation, u2.ArticleCompensation)
+	}
+	if u2.TotalCompensation != u.TotalCompensation {
+		t.Fatal("TotalCompensation Compare", u.TotalCompensation, u2.TotalCompensation)
+	}
 
 	u2, err = c.User.Name().Eq(u.Name).Retrieve()
 	if err != nil {
@@ -64,6 +72,12 @@ func TestUserSave(t *testing.T) {
 	if string(u2.CryptPassword) != string(u.CryptPassword) {
 		t.Fatal("CryptPassword Compare", u.CryptPassword, u2.CryptPassword)
 	}
+	if u2.ArticleCompensation != u.ArticleCompensation {
+		t.Fatal("ArticleCompensation Compare", u.ArticleCompensation, u2.ArticleCompensation)
+	}
+	if u2.TotalCompensation != u.TotalCompensation {
+		t.Fatal("TotalCompensation Compare", u.TotalCompensation, u2.TotalCompensation)
+	}
 
 	u2, err = c.User.Email().Eq(u.Email).Retrieve()
 	if err != nil {
@@ -80,6 +94,12 @@ func TestUserSave(t *testing.T) {
 	}
 	if string(u2.CryptPassword) != string(u.CryptPassword) {
 		t.Fatal("CryptPassword Compare", u.CryptPassword, u2.CryptPassword)
+	}
+	if u2.ArticleCompensation != u.ArticleCompensation {
+		t.Fatal("ArticleCompensation Compare", u.ArticleCompensation, u2.ArticleCompensation)
+	}
+	if u2.TotalCompensation != u.TotalCompensation {
+		t.Fatal("TotalCompensation Compare", u.TotalCompensation, u2.TotalCompensation)
 	}
 
 }
