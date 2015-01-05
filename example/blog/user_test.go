@@ -1,8 +1,8 @@
 package blog
 
 import (
+	"bytes"
 	"log"
-	"os"
 	"testing"
 
 	"github.com/acsellers/dr/migrate"
@@ -102,6 +102,88 @@ func TestUserSave(t *testing.T) {
 		t.Fatal("TotalCompensation Compare", u.TotalCompensation, u2.TotalCompensation)
 	}
 
+	c.Close()
+}
+
+func TestUserScopes(t *testing.T) {
+
+	c := openTestConn()
+	users := []User{
+		User{
+			Name:                "Hastur",
+			Email:               "hastur@example.com",
+			PermissionLevel:     1,
+			CryptPassword:       []byte("asdf"),
+			ArticleCompensation: 1.2,
+			TotalCompensation:   2.4,
+		},
+		User{
+			Name:                "Cthulhu",
+			Email:               "cthulhu@example.com",
+			PermissionLevel:     3,
+			CryptPassword:       []byte("asdf"),
+			ArticleCompensation: 1.8,
+			TotalCompensation:   2.8,
+		},
+		User{
+			Name:                "Yog-Sothoth",
+			Email:               "yog-sothoth@example.com",
+			PermissionLevel:     2,
+			CryptPassword:       []byte("asdf"),
+			ArticleCompensation: 1.8,
+			TotalCompensation:   2.8,
+		},
+		User{
+			Name:                "Tsathoggua",
+			Email:               "tsathoggua@example.com",
+			PermissionLevel:     2,
+			CryptPassword:       []byte("asdf"),
+			ArticleCompensation: 1.0,
+			TotalCompensation:   2.0,
+		},
+		User{
+			Name:                "Cthugha",
+			Email:               "cthugha@example.com",
+			PermissionLevel:     1,
+			CryptPassword:       []byte("asdf"),
+			ArticleCompensation: 1.2,
+			TotalCompensation:   2.4,
+		},
+	}
+	err := c.User.SaveAll(users)
+	if err != nil {
+		t.Fatal("User Save", err)
+	}
+
+	if c.User.Name().Eq("Cthulhu").Count() != 1 {
+		t.Fatal("User not present")
+	}
+
+	if c.User.Name().Like("cthu%").Count() != 2 {
+		t.Fatal("User.Like not working found:", c.User.Name().Like("cthu%").Count())
+	}
+
+	if c.User.Email().Like("%example.com").Count() != 5 {
+		t.Fatal("Could not retrieve by email")
+	}
+
+	if c.User.PermissionLevel().Gt(1).Count() != 3 {
+		t.Fatal("Could not find higher level users")
+	}
+
+	if c.User.ArticleCompensation().Gt(1).Count() != 4 {
+		t.Fatal("Could not find highly compensated users")
+	}
+	if c.User.ArticleCompensation().Lte(1.21).Count() != 3 {
+		t.Log(c.User.ArticleCompensation().Lte(1.21).QuerySQL())
+		t.Fatal("Could not find cheaper users")
+	}
+
+	if c.User.TotalCompensation().Gt(2.5).Count() != 2 {
+		t.Fatal("Could not find highly compensated users")
+	}
+
+	c.Close()
 }
 
 func openTestConn() *Conn {
@@ -114,7 +196,7 @@ func openTestConn() *Conn {
 		Schema:     Schema,
 		Translator: NewAppConfig("sqlite3"),
 		DBMS:       migrate.Sqlite,
-		Log:        log.New(os.Stdout, "Migrate: ", 0),
+		Log:        log.New(&bytes.Buffer{}, "Migrate: ", 0),
 	}
 	err = db.Migrate()
 	if err != nil {
