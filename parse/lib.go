@@ -855,9 +855,9 @@ package {{ .Name }}
 	} else if b, ok := v.([]byte); ok {
 		i, err := strconv.Atoi(string(b))
 		{{ if .MustNull }}
-			(*m.Mapper.Current).ID = &i
+			(*m.Mapper.Current).{{ .Name }} = &i
 		{{ else }}
-			(*m.Mapper.Current).ID = i
+			(*m.Mapper.Current).{{ .Name }} = i
 		{{ end }}
 		return err
 	}
