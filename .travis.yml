@@ -8,6 +8,8 @@ go:
 install:
   - go get github.com/acsellers/inflections
   - go get github.com/mattn/go-sqlite3
+  - go get github.com/codegangsta/cli
+  - go get golang.org/x/tools/imports
   - go install github.com/acsellers/dr
 
 script:
