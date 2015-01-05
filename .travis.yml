@@ -6,11 +6,11 @@ go:
   - 1.2
 
 install:
-  go get github.com/acsellers/inflections
-  go get github.com/mattn/go-sqlite3
-  go install github.com/acsellers/dr
+  - go get github.com/acsellers/inflections
+  - go get github.com/mattn/go-sqlite3
+  - go install github.com/acsellers/dr
 
 script:
-  cd example/blog
-  dr build
-  go test
+  - cd example/blog
+  - dr build
+  - go test
