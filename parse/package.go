@@ -11,8 +11,8 @@ import (
 	"strings"
 	"text/template"
 
-	"code.google.com/p/go.tools/imports"
 	"github.com/acsellers/inflections"
+	"golang.org/x/tools/imports"
 )
 
 type Package struct {

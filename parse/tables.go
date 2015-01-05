@@ -13,7 +13,7 @@ import (
 	"regexp"
 	"strings"
 
-	"code.google.com/p/go.tools/imports"
+	"golang.org/x/tools/imports"
 )
 
 var (
