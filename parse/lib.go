@@ -526,9 +526,9 @@ func (scope internalScope) pluckStruct(name string, result interface{}) error {
 	return nil
 }
 
-type StringArray []string
+type drStringArray []string
 
-func (sa StringArray) Includes(s string) bool{
+func (sa drStringArray) Includes(s string) bool{
 	for _, si := range sa {
 		if si == s {
 			return true
@@ -713,7 +713,7 @@ func updateRecord(c *Conn, cols []string, vals []interface{}, name, pkname strin
 	sql := fmt.Sprintf(
 		"UPDATE %s SET %s WHERE %s=?",
 		c.SQLTable(name),
-		strings.Join(cols, ", "),
+		strings.Join(cols, " = ?, ") + " = ?",
 		c.SQLColumn(name, pkname),
 	)
 	_, err := c.Exec(sql, vals...)
@@ -742,7 +742,7 @@ import (
 
 
 
-type Config interface {
+type SQLConfig interface {
 	SQLTable(string) string
 	SQLColumn(string, string) string
 }
@@ -753,7 +753,7 @@ type AppConfig struct {
 	SpecialTables NameMap
 	SpecialColumns map[string]NameMap
 
-	Normal Config	
+	Normal SQLConfig	
 }
 
 func NewAppConfig(driverName string) AppConfig {

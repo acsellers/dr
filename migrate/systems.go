@@ -102,8 +102,6 @@ func (g *GenericDB) CreateTable(table *schema.Table) error {
 	}
 
 	sql += strings.Join(defs, ", ") + ")"
-	fmt.Println(sql)
-
 	_, err := g.DB.Exec(sql, vals...)
 	if err != nil {
 		return fmt.Errorf("Error Creating Table\nSQL: %s\nError: %s", sql, err.Error())

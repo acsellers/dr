@@ -6,7 +6,7 @@ import (
 	"github.com/acsellers/inflections"
 )
 
-type Config interface {
+type SQLConfig interface {
 	SQLTable(string) string
 	SQLColumn(string, string) string
 }
@@ -17,14 +17,14 @@ type AppConfig struct {
 	SpecialTables  NameMap
 	SpecialColumns map[string]NameMap
 
-	Normal Config
+	Normal SQLConfig
 }
 
 func NewAppConfig(driverName string) AppConfig {
 	return AppConfig{
 		SpecialTables:  NameMap{},
 		SpecialColumns: map[string]NameMap{},
-		Normal:         RailsConfig{},
+		Normal:         nil,
 	}
 }
 
@@ -50,6 +50,7 @@ func (c AppConfig) SQLColumn(table, column string) string {
 	return c.Normal.SQLColumn(table, column)
 }
 
+/*
 type LowerConfig struct{}
 
 func (LowerConfig) SQLTable(table string) string {
@@ -72,7 +73,7 @@ func (pc PrefixConfig) SQLTable(table string) string {
 func (pc PrefixConfig) SQLColumn(table, column string) string {
 	return pc.ColumnPrefix + column
 }
-
+*/
 type RailsConfig struct{}
 
 func (RailsConfig) SQLTable(table string) string {

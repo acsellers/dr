@@ -12,15 +12,7 @@ import (
 func TestUserSave(t *testing.T) {
 	c := openTestConn()
 
-	u := User{
-		Name:                "Andrew",
-		Email:               "andrew@example.com",
-		PermissionLevel:     2,
-		CryptPassword:       []byte("helloworld"),
-		ArticleCompensation: 4.5,
-		TotalCompensation:   1234.45,
-	}
-	err := u.Save(c)
+	u, err := createSingleUser(c)
 	if err != nil {
 		t.Fatal("User Save", err)
 	}
@@ -54,6 +46,9 @@ func TestUserSave(t *testing.T) {
 	}
 	if u2.TotalCompensation != u.TotalCompensation {
 		t.Fatal("TotalCompensation Compare", u.TotalCompensation, u2.TotalCompensation)
+	}
+	if u2.Inactive != u.Inactive {
+		t.Fatal("Inactive Compare", u.Inactive, u2.Inactive)
 	}
 
 	u2, err = c.User.Name().Eq(u.Name).Retrieve()
@@ -102,55 +97,18 @@ func TestUserSave(t *testing.T) {
 		t.Fatal("TotalCompensation Compare", u.TotalCompensation, u2.TotalCompensation)
 	}
 
+	u.Name = "Sellers"
+	err = u.Save(nil)
+	if err != nil {
+		t.Fatal("Could not use cached_conn", err)
+	}
+
 	c.Close()
 }
 
 func TestUserScopes(t *testing.T) {
-
 	c := openTestConn()
-	users := []User{
-		User{
-			Name:                "Hastur",
-			Email:               "hastur@example.com",
-			PermissionLevel:     1,
-			CryptPassword:       []byte("asdf"),
-			ArticleCompensation: 1.2,
-			TotalCompensation:   2.4,
-		},
-		User{
-			Name:                "Cthulhu",
-			Email:               "cthulhu@example.com",
-			PermissionLevel:     3,
-			CryptPassword:       []byte("asdf"),
-			ArticleCompensation: 1.8,
-			TotalCompensation:   2.8,
-		},
-		User{
-			Name:                "Yog-Sothoth",
-			Email:               "yog-sothoth@example.com",
-			PermissionLevel:     2,
-			CryptPassword:       []byte("asdf"),
-			ArticleCompensation: 1.8,
-			TotalCompensation:   2.8,
-		},
-		User{
-			Name:                "Tsathoggua",
-			Email:               "tsathoggua@example.com",
-			PermissionLevel:     2,
-			CryptPassword:       []byte("asdf"),
-			ArticleCompensation: 1.0,
-			TotalCompensation:   2.0,
-		},
-		User{
-			Name:                "Cthugha",
-			Email:               "cthugha@example.com",
-			PermissionLevel:     1,
-			CryptPassword:       []byte("asdf"),
-			ArticleCompensation: 1.2,
-			TotalCompensation:   2.4,
-		},
-	}
-	err := c.User.SaveAll(users)
+	_, err := createTestUsers(c)
 	if err != nil {
 		t.Fatal("User Save", err)
 	}
@@ -186,6 +144,23 @@ func TestUserScopes(t *testing.T) {
 	c.Close()
 }
 
+func TestConnActions(t *testing.T) {
+	c := openTestConn()
+	_, err := createTestUsers(c)
+	if err != nil {
+		t.Fatal("Create users", err)
+	}
+
+	c2 := c.Clone()
+	c2.User = c.User.Inactive().Eq(false).ID()
+
+	if c2.User.Count() != 3 && c.User.Count() != 5 {
+		t.Fatal("Couldn't rework a cloned user scope", c2.User.Count(), c.User.Count())
+	}
+
+	c.Close()
+}
+
 func openTestConn() *Conn {
 	c, err := Open("sqlite3", ":memory:")
 	if err != nil {
@@ -203,4 +178,67 @@ func openTestConn() *Conn {
 		panic(err)
 	}
 	return c
+}
+
+func createSingleUser(c *Conn) (User, error) {
+	u := User{
+		Name:                "Andrew",
+		Email:               "andrew@example.com",
+		PermissionLevel:     2,
+		CryptPassword:       []byte("helloworld"),
+		ArticleCompensation: 4.5,
+		TotalCompensation:   1234.45,
+		Inactive:            true,
+	}
+	err := u.Save(c)
+	return u, err
+}
+
+func createTestUsers(c *Conn) ([]User, error) {
+	users := []User{
+		User{
+			Name:                "Hastur",
+			Email:               "hastur@example.com",
+			PermissionLevel:     1,
+			CryptPassword:       []byte("asdf"),
+			ArticleCompensation: 1.2,
+			TotalCompensation:   2.4,
+		},
+		User{
+			Name:                "Cthulhu",
+			Email:               "cthulhu@example.com",
+			PermissionLevel:     3,
+			CryptPassword:       []byte("asdf"),
+			ArticleCompensation: 1.8,
+			TotalCompensation:   2.8,
+		},
+		User{
+			Name:                "Yog-Sothoth",
+			Email:               "yog-sothoth@example.com",
+			PermissionLevel:     2,
+			CryptPassword:       []byte("asdf"),
+			ArticleCompensation: 1.8,
+			TotalCompensation:   2.8,
+			Inactive:            true,
+		},
+		User{
+			Name:                "Tsathoggua",
+			Email:               "tsathoggua@example.com",
+			PermissionLevel:     2,
+			CryptPassword:       []byte("asdf"),
+			ArticleCompensation: 1.0,
+			TotalCompensation:   2.0,
+			Inactive:            true,
+		},
+		User{
+			Name:                "Cthugha",
+			Email:               "cthugha@example.com",
+			PermissionLevel:     1,
+			CryptPassword:       []byte("asdf"),
+			ArticleCompensation: 1.2,
+			TotalCompensation:   2.4,
+		},
+	}
+	err := c.User.SaveAll(users)
+	return users, err
 }

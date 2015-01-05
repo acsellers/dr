@@ -591,7 +591,7 @@ func mapperFor{{ .Name }}(c *Conn, includes []string) *mapper{{ .Name }} {
 
 	{{ range $column := .Columns }}
 		{{ if $column.Subrecord }}
-			if StringArray(includes).Includes("{{ $column.Subrecord.Name }}") {
+			if drStringArray(includes).Includes("{{ $column.Subrecord.Name }}") {
 				m.Columns = append(m.Columns,
 					{{ range $subcolumn := $column.Subcolumns }}c.SQLTable("{{ $table.Name }}") + "." + c.SQLColumn("{{ $table.Name }}", "{{ $subcolumn.Name }}"),{{ end }}
 				)

@@ -189,7 +189,11 @@ func (t *{{ $table.Name }}) create(c *Conn) error {
 }
 
 func (t *{{ $table.Name }}) update(c *Conn) error {
-	return updateRecord(c, t.simpleCols(c), append(t.simpleVals(), t.{{ $table.PrimaryKeyColumn.Name }}), "{{ $table.Name }}", "{{ $table.PrimaryKeyColumn.Name }}")
+	if c == nil {
+		return updateRecord(t.cached_conn, t.simpleCols(t.cached_conn), append(t.simpleVals(), t.{{ $table.PrimaryKeyColumn.Name }}), "{{ $table.Name }}", "{{ $table.PrimaryKeyColumn.Name }}")
+	} else {
+		return updateRecord(c, t.simpleCols(c), append(t.simpleVals(), t.{{ $table.PrimaryKeyColumn.Name }}), "{{ $table.Name }}", "{{ $table.PrimaryKeyColumn.Name }}")
+	}
 }
 
 func (t {{ $table.Name }}) Delete(c *Conn) error {
