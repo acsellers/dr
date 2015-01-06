@@ -158,7 +158,7 @@ func TestUserSave(t *testing.T) {
 
 func TestUserScopes(t *testing.T) {
 	c := openTestConn()
-	_, err := createTestUsers(c)
+	users, err := createTestUsers(c)
 	if err != nil {
 		t.Fatal("User Save", err)
 	}
@@ -192,11 +192,24 @@ func TestUserScopes(t *testing.T) {
 	}
 
 	if c.User.Name().In("Cthulhu", "Tsathoggua").Count() != 2 {
+		t.Log(c.User.Name().PluckString())
 		t.Fatal("User Name In")
 	}
 
 	if c.User.Name().NotIn("Cthulhu", "Tsathoggua").Count() != 3 {
 		t.Fatal("User Name NotIn")
+	}
+
+	sc := c.User.Name().Eq("Cthulhu")
+	if sc.Count() != sc.Clone().Count() {
+		t.Fatal("Scope Clone")
+	}
+
+	between := c.User.Between(users[0].ID, users[2].ID)
+	if between.Count() != 3 {
+		t.Log(between.QuerySQL())
+		t.Log(between.Count())
+		t.Fatal("Between")
 	}
 
 	c.Close()

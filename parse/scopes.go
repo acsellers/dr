@@ -278,8 +278,8 @@ func (scope {{ .Name }}Scope) RetrieveAll() ([]{{ .Name }}, error) {
 }
 
 func (scope {{ .Name }}Scope) SaveAll(vals []{{ .Name }}) error {
-	for _, val := range vals {
-		err := val.Save(scope.conn)
+	for i := range vals {
+		err := vals[i].Save(scope.conn)
 		if err != nil {
 			return err
 		}
