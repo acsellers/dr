@@ -264,7 +264,7 @@ func (scope internalScope) NotIn(vals ...interface{}) internalScope {
 	vc := make([]string, len(vals))
 	c := condition{
 		column: scope.currentColumn,
-		cond:   fmt.Sprintf("NOT IN (%!s(MISSING)?)", strings.Join(vc, "?, ")),
+		cond:   "NOT IN (" + strings.Join(vc, "?, ") + "?)",
 		vals:   vals,
 	}
 

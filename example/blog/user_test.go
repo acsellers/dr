@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"log"
 	"testing"
+	"time"
 
 	"github.com/acsellers/dr/migrate"
 	_ "github.com/mattn/go-sqlite3"
@@ -97,10 +98,59 @@ func TestUserSave(t *testing.T) {
 		t.Fatal("TotalCompensation Compare", u.TotalCompensation, u2.TotalCompensation)
 	}
 
+	names, err := u.Scope().Name().PluckString()
+	if err != nil {
+		log.Fatal("Name Pluck", err)
+	}
+	if len(names) != 1 || names[0] != "Andrew" {
+		log.Fatal("Name Retrieve", names)
+	}
+
+	ids, err := u.Scope().ID().PluckInt()
+	if err != nil {
+		log.Fatal("ID Pluck", err)
+	}
+	if len(ids) != 1 || int(ids[0]) != u.ID {
+		log.Fatal("ID Retrieve", ids)
+	}
+
+	creation, err := u.Scope().CreatedAt().PluckTime()
+	if err != nil {
+		log.Fatal("CreatedAt Pluck", err)
+	}
+	if len(creation) != 1 || creation[0] != u.CreatedAt {
+		log.Fatal("CreatedAt Retrieve", creation, u.CreatedAt)
+	}
+
+	var miniUser []struct {
+		ID   int
+		Name string
+	}
+
+	err = u.Scope().PluckStruct(&miniUser)
+	if err != nil {
+		t.Fatal("PluckStruct", err)
+	}
+	if len(miniUser) != 1 {
+		t.Fatal("Too many users", miniUser)
+	}
+
 	u.Name = "Sellers"
 	err = u.Save(nil)
 	if err != nil {
 		t.Fatal("Could not use cached_conn", err)
+	}
+	if u.Scope().Count() != 1 {
+		t.Fatal("Couldn't find user in database")
+	}
+
+	err = u.Delete(c)
+	if err != nil {
+		log.Fatal("User Delete", err)
+	}
+
+	if u.ToScope(c).Count() != 0 {
+		t.Fatal("Couldn't delete the user id database")
 	}
 
 	c.Close()
@@ -139,6 +189,14 @@ func TestUserScopes(t *testing.T) {
 
 	if c.User.TotalCompensation().Gt(2.5).Count() != 2 {
 		t.Fatal("Could not find highly compensated users")
+	}
+
+	if c.User.Name().In("Cthulhu", "Tsathoggua").Count() != 2 {
+		t.Fatal("User Name In")
+	}
+
+	if c.User.Name().NotIn("Cthulhu", "Tsathoggua").Count() != 3 {
+		t.Fatal("User Name NotIn")
 	}
 
 	c.Close()
@@ -189,6 +247,7 @@ func createSingleUser(c *Conn) (User, error) {
 		ArticleCompensation: 4.5,
 		TotalCompensation:   1234.45,
 		Inactive:            true,
+		CreatedAt:           time.Now(),
 	}
 	err := u.Save(c)
 	return u, err
