@@ -207,9 +207,16 @@ func TestUserScopes(t *testing.T) {
 
 	between := c.User.Between(users[0].ID, users[2].ID)
 	if between.Count() != 3 {
-		t.Log(between.QuerySQL())
-		t.Log(between.Count())
 		t.Fatal("Between")
+	}
+
+	raises := c.User.Where("ArticleCompensation * 2 > TotalCompensation + 0.01")
+	if raises.Count() != 2 {
+		t.Fatal("Where")
+	}
+
+	if c.User.Name().Neq("Cthulhu").Count() != 4 {
+		t.Fatal("Not")
 	}
 
 	c.Close()
