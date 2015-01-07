@@ -207,6 +207,7 @@ func TestUserScopes(t *testing.T) {
 
 	between := c.User.Between(users[0].ID, users[2].ID)
 	if between.Count() != 3 {
+		t.Log(c.User.Between(users[0].ID, users[2].ID).QuerySQL())
 		t.Fatal("Between")
 	}
 
