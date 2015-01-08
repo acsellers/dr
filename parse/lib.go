@@ -303,6 +303,7 @@ func (scope internalScope)	outerJoin(name string, things ...Scope) internalScope
 				joinString, 
 			))
 			scope.joinedScopes = append(scope.joinedScopes, thing)
+			scope.conditions = append(scope.conditions, thing.conds()...)
 			continue
 		} else {
 			for _, joinscope := range scope.joinedScopes {
@@ -313,6 +314,7 @@ func (scope internalScope)	outerJoin(name string, things ...Scope) internalScope
 						joinString, 
 					))
 					scope.joinedScopes = append(scope.joinedScopes, thing)
+					scope.conditions = append(scope.conditions, thing.conds()...)
 					continue		
 				}
 			}
