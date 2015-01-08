@@ -30,6 +30,9 @@ var Schema = schema.Schema{
 							{{ if eq $column.GoType "&{time.Time}" }}
 								DefaultTime("{{ $column.Name }}"),
 							{{ end }}
+							{{ if eq $column.Type "timestamp" }}
+								DefaultTime("{{ $column.Name }}"),
+							{{ end }}
 						{{ else }}
 							{{ if $column.SimpleType }}
 								schema.Column{
