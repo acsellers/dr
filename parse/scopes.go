@@ -186,7 +186,7 @@ func (scope {{ .Name }}Scope) joinTable() string {
 // aggregation filtering
 func (scope {{ .Name }}Scope) Having(sql string, vals ...interface{}) {{ .Name }}Scope {
 	scope.having = append(scope.having, sql)
-	scope.havevals = append(scope.havevals, vals...)
+	scope.haveVals = append(scope.haveVals, vals...)
 	return scope
 }
 

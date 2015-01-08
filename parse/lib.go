@@ -24,6 +24,7 @@ type Scope interface {
 	joinable() string
 	joinTable() string
 	conds() []condition
+	internal() internalScope
 }
 
 func (c *Conn) Exec(query string, args ...interface{}) (sql.Result, error) {
@@ -76,7 +77,7 @@ type internalScope struct {
 	includes                    []string
 	conditions                  []condition
 	having                      []string
-	havevals                    []interface{}
+	haveVals                    []interface{}
 	groupBy                     []string
 	currentColumn, currentAlias string
 	isDistinct                  bool
@@ -126,7 +127,7 @@ func (s *internalScope) query() (string, []interface{}) {
 	if len(s.having) > 0 {
 		sql = append(sql, "HAVING")
 		sql = append(sql, s.having...)
-		vals = append(vals, s.havevals...)
+		vals = append(vals, s.haveVals...)
 	}
 
 	if len(s.order) > 0 {
@@ -303,7 +304,7 @@ func (scope internalScope)	outerJoin(name string, things ...Scope) internalScope
 				joinString, 
 			))
 			scope.joinedScopes = append(scope.joinedScopes, thing)
-			scope.conditions = append(scope.conditions, thing.conds()...)
+			scope = scope.apply(thing)
 			continue
 		} else {
 			for _, joinscope := range scope.joinedScopes {
@@ -314,7 +315,7 @@ func (scope internalScope)	outerJoin(name string, things ...Scope) internalScope
 						joinString, 
 					))
 					scope.joinedScopes = append(scope.joinedScopes, thing)
-					scope.conditions = append(scope.conditions, thing.conds()...)
+					scope = scope.apply(thing)
 					continue		
 				}
 			}
@@ -333,8 +334,8 @@ func (scope internalScope)	innerJoin(name string, things ...Scope) internalScope
 				thing.joinable(),
 				joinString, 
 			))
-			scope.conditions = append(scope.conditions, thing.conds()...)
 			scope.joinedScopes = append(scope.joinedScopes, thing)
+			scope = scope.apply(thing)
 			continue
 		} else {
 			for _, joinscope := range scope.joinedScopes {
@@ -345,7 +346,7 @@ func (scope internalScope)	innerJoin(name string, things ...Scope) internalScope
 						joinString, 
 					))
 					scope.joinedScopes = append(scope.joinedScopes, thing)
-					scope.conditions = append(scope.conditions, thing.conds()...)
+					scope = scope.apply(thing)
 					continue		
 				}
 			}
@@ -481,6 +482,21 @@ func (scope internalScope) PluckTime() ([]time.Time, error) {
 	}
 
 	return vals, nil
+}
+
+func (scope internalScope) internal() internalScope {
+	return scope
+}
+
+func (scope internalScope) apply(s Scope) internalScope {
+	as := s.internal()
+	scope.conditions = append(scope.conditions, as.conditions...)
+	scope.joins = append(scope.joins, as.joins...)
+	scope.joinedScopes = append(scope.joinedScopes, as.joinedScopes...)
+	scope.having = append(scope.having, as.having...)
+	scope.haveVals = append(scope.haveVals, as.haveVals...)
+	scope.groupBy = append(scope.groupBy, as.groupBy...)
+	return scope
 }
 
 func (scope internalScope) pluckStruct(name string, result interface{}) error {
