@@ -616,6 +616,9 @@ func mapperFor{{ .Name }}(c *Conn, includes []string) *mapper{{ .Name }} {
 				func (t {{ $table.Name }}) {{ $relate.Name }}Scope(c *Conn) {{ $relate.Table }}Scope {
 					return c.{{ $relate.Table }}.{{ $relate.ColumnName }}().Eq(t.{{ $table.PrimaryKeyColumn.Name }})
 				}
+				func (scope {{ $table.Name }}Scope) {{ $relate.Name }}Scope() {{ $relate.Table }}Scope {
+					return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}).internal()}
+				}
 			{{ end }}
 		{{ end }}
 	{{ end }}
@@ -627,6 +630,9 @@ func mapperFor{{ .Name }}(c *Conn, includes []string) *mapper{{ .Name }} {
 				}
 				func (t {{ $table.Name }}) {{ $relate.Name }}Scope(c *Conn) {{ $relate.Table }}Scope {
 					return c.{{ $relate.Table }}.Eq(t.{{ $relate.Name }}ID)
+				}
+				func (scope {{ $table.Name }}Scope) {{ $relate.Name }}Scope() {{ $relate.Table }}Scope {
+					return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}).internal()}
 				}
 			{{ end }}
 		{{ end }}
@@ -640,6 +646,9 @@ func mapperFor{{ .Name }}(c *Conn, includes []string) *mapper{{ .Name }} {
 				func (t {{ $table.Name }}) {{ $relate.Name }}Scope(c *Conn) {{ $relate.Table }}Scope {
 					return c.{{ $relate.Table }}.{{ $relate.ColumnName }}().Eq(t.{{ $table.PrimaryKeyColumn.Name }})
 				}
+				func (scope {{ $table.Name }}Scope) {{ $relate.Name }}Scope() {{ $relate.Table }}Scope {
+					return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}).internal()}
+				}
 			{{ end }}
 		{{ end }}
 	{{ end }}
@@ -651,6 +660,9 @@ func mapperFor{{ .Name }}(c *Conn, includes []string) *mapper{{ .Name }} {
 				}
 				func (t {{ $table.Name }}) {{ $relate.Name }}Scope(c *Conn) {{ $relate.Table }}Scope {
 					return c.{{ $relate.Table }}.Eq(t.{{ $relate.Name }}ID)
+				}
+				func (scope {{ $table.Name }}Scope) {{ $relate.Name }}Scope() {{ $relate.Table }}Scope {
+					return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}).internal()}
 				}
 			{{ end }}
 		{{ end }}
