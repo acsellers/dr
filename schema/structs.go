@@ -68,6 +68,7 @@ type View struct {
 
 type ManyRelationship struct {
 	Parent      *Table
+	Alias       string
 	Child       *Table
 	ChildColumn *Column
 }

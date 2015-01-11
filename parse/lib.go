@@ -22,7 +22,7 @@ type Scope interface {
 	SetConn(*Conn) Scope
 	joinOn(string, Scope) (string, bool)
 	joinable() string
-	joinTable() string
+	tableName() string
 	conds() []condition
 	internal() internalScope
 }
@@ -69,7 +69,7 @@ func (c *Conn) Close() error {
 
 type internalScope struct {
 	conn                        *Conn
-	table                       string
+	table, tableAlias           string
 	columns                     []string
 	order                       []string
 	joins                       []string

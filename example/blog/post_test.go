@@ -80,6 +80,10 @@ func TestPostSave(t *testing.T) {
 		t.Fatal(ps.QuerySQL())
 	}
 
+	if users[0].Scope().SponsorScope().Count() != 0 {
+		t.Fatal(users[0].Scope().SponsorScope().QuerySQL())
+	}
+
 	// end test
 	c.Close()
 }

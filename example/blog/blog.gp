@@ -14,6 +14,7 @@ type User table {
 
   relation {
     []Post
+    Sponsor []Post
   }
 
   index {
@@ -26,6 +27,7 @@ type SecurePassword mixin {
 }
 
 func (sp *SecurePassword) SetPassword(password string) {
+  var err error
   sp.CryptPassword, err = bcrypt.GenerateFromPassword([]byte(password), 0)
   if err != nil {
     log.Println("SetPassword", err)
@@ -44,9 +46,11 @@ type Post table {
   Title string
   Body string `type:"text"`
   UserID int
+  SponsorID int
 
   relation {
     User
+    Sponsor User
   }
 
   index {
