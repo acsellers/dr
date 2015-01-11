@@ -92,6 +92,10 @@ func (pkg *Package) processForMixins(mx Mixinable) {
 					fields = append(fields, mixin.Fields()...)
 					for _, mfunc := range pkg.Funcs[mixin.Name] {
 						tident := ast.NewIdent(mx.Name())
+						name := mx.Name()
+						if _, ok := mfunc.Spec.Recv.List[0].Type.(*ast.StarExpr); ok {
+							name = "*" + name
+						}
 						tfunc := &ast.FuncDecl{
 							Doc: mfunc.Spec.Doc,
 							Recv: &ast.FieldList{
@@ -100,9 +104,10 @@ func (pkg *Package) processForMixins(mx Mixinable) {
 									&ast.Field{
 										Doc:   mfunc.Spec.Recv.List[0].Doc,
 										Names: mfunc.Spec.Recv.List[0].Names,
+										// Type:  mfunc.Spec.Recv.List[0].Type,
 										Type: &ast.Ident{
-											NamePos: mfunc.Spec.Recv.List[0].Type.(*ast.Ident).NamePos,
-											Name:    mx.Name(),
+											NamePos: mfunc.Spec.Recv.List[0].Type.Pos(),
+											Name:    name,
 											Obj:     tident.Obj,
 										},
 										Tag:     mfunc.Spec.Recv.List[0].Tag,
@@ -356,6 +361,9 @@ DeclLoop:
 		} else if fd, ok := decl.(*ast.FuncDecl); ok {
 			if fd.Recv.NumFields() > 0 {
 				name := fmt.Sprint(fd.Recv.List[0].Type)
+				if pt, ok := fd.Recv.List[0].Type.(*ast.StarExpr); ok {
+					name = fmt.Sprint(pt.X)
+				}
 				pkg.Funcs[name] = append(pkg.Funcs[name], Func{name, fd, fa})
 			}
 		}
