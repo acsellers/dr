@@ -170,20 +170,17 @@ func (pkg *Package) processForRelations(table Table) Table {
 				if rst, ok := field.Type.(*ast.StructType); ok {
 					for _, rfield := range rst.Fields.List {
 						r := Relationship{Parent: table}
-						fmt.Println("Table:", table.Name(), "Relation:", rfield.Names, rfield.Type)
 						// TODO: names can be plural, fix this later
 						if !strings.HasPrefix(rfield.Names[0].Name, "DRRelated") {
 							r.Alias = rfield.Names[0].Name
 						}
 						if id, ok := rfield.Type.(*ast.Ident); ok {
 							r.Table = id.Name
-							fmt.Println("Singular or OwnedBy:", id.Name)
 						}
 						if se, ok := rfield.Type.(*ast.ArrayType); ok {
 							if id, ok := se.Elt.(*ast.Ident); ok {
 								r.IsArray = true
 								r.Table = id.Name
-								fmt.Println("HasMany:", id.Name)
 							}
 						}
 						table.Relations = append(table.Relations, r)
@@ -203,12 +200,10 @@ func (pkg *Package) processForRelations(table Table) Table {
 					for _, rfield := range rst.Fields.List {
 						ix := Index{}
 						if len(rfield.Names) > 0 {
-							fmt.Println("Table:", table.Name(), "Compound Index:", rfield.Names)
 							for _, name := range rfield.Names {
 								ix.Columns = append(ix.Columns, name.Name)
 							}
 						} else {
-							fmt.Println("Table:", table.Name(), "Index:", rfield.Type)
 							ix.Columns = append(ix.Columns, fmt.Sprint(rfield.Type))
 						}
 						table.Indexes = append(table.Indexes, ix)
@@ -239,7 +234,6 @@ func (pkg *Package) linkRelations(table Table) Table {
 		}
 
 		if _, ok := table.ColumnByName(relate.Table + "ID"); !ok {
-			// fmt.Println(table.name, relate, len(table.cols))
 			relate.Type = "HasOne"
 			relate.ParentName = table.name
 			relate.ChildName = relate.Table
