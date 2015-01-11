@@ -84,6 +84,24 @@ func TestPostSave(t *testing.T) {
 		t.Fatal(users[0].Scope().SponsorScope().QuerySQL())
 	}
 
+	p.SponsorID = users[0].ID
+	err = p.Save(c)
+	if err != nil {
+		t.Fatal("Post Save", err)
+	}
+
+	if users[0].Scope().SponsorScope().Count() != 1 {
+		t.Fatal(users[0].Scope().SponsorScope().QuerySQL())
+	}
+
+	sponsored, err := users[0].Scope().SponsorScope().RetrieveAll()
+	if err != nil {
+		t.Fatal("Sponsor RetrieveAll", err)
+	}
+	if len(sponsored) != 1 || sponsored[0].Title != p.Title {
+		t.Fatal(users[0].Scope().SponsorScope().QuerySQL())
+	}
+
 	// end test
 	c.Close()
 }

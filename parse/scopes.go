@@ -234,7 +234,7 @@ func (scope {{ .Name }}Scope) Find(id interface{}) ({{ .Name }}, error) {
 
 func (scope {{ .Name }}Scope) Retrieve() ({{ .Name }}, error) {
 	val := &{{ .Name }}{}
-	m := mapperFor{{ .Name }}(scope.conn, scope.includes)
+	m := mapperFor{{ .Name }}(scope)
 	m.Current = &val
 	scope.columns = m.Columns
 
@@ -250,7 +250,7 @@ func (scope {{ .Name }}Scope) Retrieve() ({{ .Name }}, error) {
 }
 
 func (scope {{ .Name }}Scope) RetrieveAll() ([]{{ .Name }}, error) {
-	m := mapperFor{{ .Name }}(scope.conn, scope.includes)
+	m := mapperFor{{ .Name }}(scope)
 	scope.columns = m.Columns
 
 	ss, vv := scope.QuerySQL()
@@ -585,9 +585,9 @@ type mapper{{ .Name }} struct {
 	Scanners []interface{}
 }
 
-func mapperFor{{ .Name }}(c *Conn, includes []string) *mapper{{ .Name }} {
+func mapperFor{{ .Name }}(scope  {{ .Name }}Scope) *mapper{{ .Name }} {
 	m := &mapper{{ .Name }}{}
-	m.Columns = []string{ {{ range $column := .Columns }} {{ if $column.SimpleType }} c.SQLTable("{{ $table.Name }}") + "." + c.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}"), {{ end }} {{ end }} }
+	m.Columns = []string{ {{ range $column := .Columns }} {{ if $column.SimpleType }} scope.tableName() + "." + scope.conn.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}"), {{ end }} {{ end }} }
 	m.Scanners = []interface{}{
 		{{ range $column := .Columns }}
 			{{ if $column.SimpleType }}
@@ -598,9 +598,9 @@ func mapperFor{{ .Name }}(c *Conn, includes []string) *mapper{{ .Name }} {
 
 	{{ range $column := .Columns }}
 		{{ if $column.Subrecord }}
-			if drStringArray(includes).Includes("{{ $column.Subrecord.Name }}") {
+			if drStringArray(scope.includes).Includes("{{ $column.Subrecord.Name }}") {
 				m.Columns = append(m.Columns,
-					{{ range $subcolumn := $column.Subcolumns }}c.SQLTable("{{ $table.Name }}") + "." + c.SQLColumn("{{ $table.Name }}", "{{ $subcolumn.Name }}"),{{ end }}
+					{{ range $subcolumn := $column.Subcolumns }}scope.conn.SQLTable("{{ $table.Name }}") + "." + scope.conn.SQLColumn("{{ $table.Name }}", "{{ $subcolumn.Name }}"),{{ end }}
 				)
 
 				m.Scanners = append(m.Scanners,
