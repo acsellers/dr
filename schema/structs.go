@@ -68,13 +68,14 @@ type View struct {
 
 type ManyRelationship struct {
 	Parent      *Table
-	Alias       string
 	Child       *Table
 	ChildColumn *Column
+	Alias       string
 }
 
 type OneRelationship struct {
 	Parent      *Table
 	Child       *Table
 	ChildColumn *Column
+	Alias       string
 }

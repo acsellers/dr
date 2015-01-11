@@ -514,7 +514,7 @@ func (pkg *Package) WriteLibraryFiles() {
 
 	filename := "db_config.go"
 	if _, err = os.Stat(filename); err == nil {
-		fmt.Println("Library file already written")
+		// fmt.Println("Library file already written")
 		return
 	}
 	b = &bytes.Buffer{}

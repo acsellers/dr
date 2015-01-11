@@ -78,9 +78,10 @@ func init() {
 				{{ range $relate := $table.Relations }}
 					{{ if $relate.IsHasMany }}
 						schema.ManyRelationship{
-							Schema.Tables["{{ $relate.ParentName }}"],
-							Schema.Tables["{{ $relate.ChildName }}"],
-							Schema.Tables["{{ $relate.ChildName }}"].FindColumn("{{ $relate.OperativeColumn }}"),
+							Parent: Schema.Tables["{{ $relate.ParentName }}"],
+							Child: Schema.Tables["{{ $relate.ChildName }}"],
+							ChildColumn: Schema.Tables["{{ $relate.ChildName }}"].FindColumn("{{ $relate.OperativeColumn }}"),
+							Alias: "{{ $relate.Alias }}",
 						},
 					{{ end }}
 				{{ end }}
@@ -94,9 +95,10 @@ func init() {
 				{{ range $relate := $table.Relations }}
 					{{ if $relate.IsChildHasMany }}
 						schema.ManyRelationship{
-							Schema.Tables["{{ $relate.ParentName }}"],
-							Schema.Tables["{{ $relate.ChildName }}"],
-							Schema.Tables["{{ $relate.ChildName }}"].FindColumn("{{ $relate.OperativeColumn }}"),
+							Parent: Schema.Tables["{{ $relate.ParentName }}"],
+							Child: Schema.Tables["{{ $relate.ChildName }}"],
+							ChildColumn: Schema.Tables["{{ $relate.ChildName }}"].FindColumn("{{ $relate.OperativeColumn }}"),
+							Alias: "{{ $relate.Alias }}",
 						},
 					{{ end }}
 				{{ end }}
@@ -110,9 +112,10 @@ func init() {
 				{{ range $relate := $table.Relations }}
 					{{ if $relate.IsHasOne }}
 						schema.OneRelationship{
-							Schema.Tables["{{ $relate.ParentName }}"],
-							Schema.Tables["{{ $relate.ChildName }}"],
-							Schema.Tables["{{ $relate.ChildName }}"].FindColumn("{{ $relate.OperativeColumn }}"),
+							Parent: Schema.Tables["{{ $relate.ParentName }}"],
+							Child: Schema.Tables["{{ $relate.ChildName }}"],
+							ChildColumn: Schema.Tables["{{ $relate.ChildName }}"].FindColumn("{{ $relate.OperativeColumn }}"),
+							Alias: "{{ $relate.Alias }}",
 						},
 					{{ end }}
 				{{ end }}
@@ -126,9 +129,10 @@ func init() {
 				{{ range $relate := $table.Relations }}
 					{{ if $relate.IsBelongsTo }}
 						schema.OneRelationship{
-							Schema.Tables["{{ $relate.ParentName }}"],
-							Schema.Tables["{{ $relate.ChildName }}"],
-							Schema.Tables["{{ $relate.ChildName }}"].FindColumn("{{ $relate.OperativeColumn }}"),
+							Parent: Schema.Tables["{{ $relate.ParentName }}"],
+							Child: Schema.Tables["{{ $relate.ChildName }}"],
+							ChildColumn: Schema.Tables["{{ $relate.ChildName }}"].FindColumn("{{ $relate.OperativeColumn }}"),
+							Alias: "{{ $relate.Alias }}",
 						},
 					{{ end }}
 				{{ end }}

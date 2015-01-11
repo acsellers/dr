@@ -627,7 +627,7 @@ func mapperFor{{ .Name }}(c *Conn, includes []string) *mapper{{ .Name }} {
 					{{ if eq $relate.Name $relate.Table }}
 						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}).internal()}
 					{{ else }}
-						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}.Alias("{{ $relate.Name }}")).internal()}
+						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}.Alias("{{ $relate.Name }}")).internal()}.Alias("{{ $relate.Name }}")
 					{{ end }}
 				}
 			{{ end }}
@@ -646,7 +646,7 @@ func mapperFor{{ .Name }}(c *Conn, includes []string) *mapper{{ .Name }} {
 					{{ if eq $relate.Name $relate.Table }}
 						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}).internal()}
 					{{ else }}
-						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}.Alias("{{ $relate.Name }}")).internal()}
+						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}.Alias("{{ $relate.Name }}")).internal()}.Alias("{{ $relate.Name }}")
 					{{ end }}
 				}
 			{{ end }}
@@ -665,7 +665,7 @@ func mapperFor{{ .Name }}(c *Conn, includes []string) *mapper{{ .Name }} {
 					{{ if eq $relate.Name $relate.Table }}
 						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}).internal()}
 					{{ else }}
-						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}.Alias("{{ $relate.Name }}")).internal()}
+						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}.Alias("{{ $relate.Name }}")).internal()}.Alias("{{ $relate.Name }}")
 					{{ end }}
 				}
 			{{ end }}
@@ -684,7 +684,7 @@ func mapperFor{{ .Name }}(c *Conn, includes []string) *mapper{{ .Name }} {
 					{{ if eq $relate.Name $relate.Table }}
 						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}).internal()}
 					{{ else }}
-						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}.Alias("{{ $relate.Name }}")).internal()}
+						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}.Alias("{{ $relate.Name }}")).internal()}.Alias("{{ $relate.Name }}")
 					{{ end }}
 				}
 			{{ end }}
