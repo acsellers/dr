@@ -10,6 +10,7 @@ install:
   - go get github.com/mattn/go-sqlite3
   - go get github.com/codegangsta/cli
   - go get golang.org/x/tools/imports
+  - go get golang.org/x/crypto/bcrypt
   - go install github.com/acsellers/dr
 
 script:
