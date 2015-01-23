@@ -360,34 +360,56 @@ func (scope internalScope)	innerJoin(name string, things ...Scope) internalScope
 func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
 	ts := Schema.Tables[name]
 	for _, hm := range ts.HasMany {
-		tableMatch := hm.Parent.Name == name && hm.Child.Name == joinee.scopeName()
-		if tableMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
+		parentMatch := hm.Parent.Name == name && hm.Child.Name == joinee.scopeName()
+		if parentMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
 			pkc := hm.Parent.PrimaryKeyColumn()
 			return fmt.Sprintf(
 				"%s.%s = %s.%s",
 				scope.conn.SQLTable(hm.Parent.Name),
 				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
 				scope.conn.SQLTable(joinee.tableName()),
+				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
+			), true
+		}
+		childMatch := hm.Child.Name == name && hm.Parent.Name == joinee.scopeName()
+		if childMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
+			pkc := hm.Parent.PrimaryKeyColumn()
+			return fmt.Sprintf(
+				"%s.%s = %s.%s",
+				scope.conn.SQLTable(joinee.tableName()),
+				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
+				scope.conn.SQLTable(hm.Child.Name),
 				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
 			), true
 		}
 	}
 	for _, hm := range ts.ChildOf {
-		tableMatch := hm.Parent.Name == name && hm.Child.Name == joinee.scopeName()
-		if tableMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
+		parentMatch := hm.Parent.Name == name && hm.Child.Name == joinee.scopeName()
+		if parentMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
 			pkc := hm.Parent.PrimaryKeyColumn()
 			return fmt.Sprintf(
 				"%s.%s = %s.%s",
 				scope.conn.SQLTable(hm.Parent.Name),
 				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
 				scope.conn.SQLTable(joinee.tableName()),
+				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
+			), true
+		}
+		childMatch := hm.Child.Name == name && hm.Parent.Name == joinee.scopeName()
+		if childMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
+			pkc := hm.Parent.PrimaryKeyColumn()
+			return fmt.Sprintf(
+				"%s.%s = %s.%s",
+				scope.conn.SQLTable(joinee.tableName()),
+				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
+				scope.conn.SQLTable(hm.Child.Name),
 				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
 			), true
 		}
 	}
 	for _, hm := range ts.HasOne {
-		tableMatch := hm.Parent.Name == name && hm.Child.Name == joinee.scopeName()
-		if tableMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
+		parentMatch := hm.Parent.Name == name && hm.Child.Name == joinee.scopeName()
+		if parentMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
 			pkc := hm.Parent.PrimaryKeyColumn()
 			return fmt.Sprintf(
 				"%s.%s = %s.%s",
@@ -397,16 +419,38 @@ func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
 				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
 			), true
 		}
+		childMatch := hm.Child.Name == name && hm.Parent.Name == joinee.scopeName()
+		if childMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
+			pkc := hm.Parent.PrimaryKeyColumn()
+			return fmt.Sprintf(
+				"%s.%s = %s.%s",
+				scope.conn.SQLTable(joinee.tableName()),
+				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
+				scope.conn.SQLTable(hm.Child.Name),
+				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
+			), true
+		}
 	}
 	for _, hm := range ts.BelongsTo {
-		tableMatch := hm.Parent.Name == name && hm.Child.Name == joinee.scopeName()
-		if tableMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
+		parentMatch := hm.Parent.Name == name && hm.Child.Name == joinee.scopeName()
+		if parentMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
 			pkc := hm.Parent.PrimaryKeyColumn()
 			return fmt.Sprintf(
 				"%s.%s = %s.%s",
 				scope.conn.SQLTable(hm.Parent.Name),
 				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
 				scope.conn.SQLTable(joinee.tableName()),
+				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
+			), true
+		}
+		childMatch := hm.Child.Name == name && hm.Parent.Name == joinee.scopeName()
+		if childMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
+			pkc := hm.Parent.PrimaryKeyColumn()
+			return fmt.Sprintf(
+				"%s.%s = %s.%s",
+				scope.conn.SQLTable(joinee.tableName()),
+				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
+				scope.conn.SQLTable(hm.Child.Name),
 				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
 			), true
 		}
