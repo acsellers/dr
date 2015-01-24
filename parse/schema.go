@@ -21,7 +21,7 @@ var Schema = schema.Schema{
 							{{ if eq $column.GoType "int" }}
 								DefaultInt("{{ $column.Name }}"),
 							{{ end }}
-							{{ if eq $column.GoType "string" }}
+							{{ if eq $column.Type "varchar" }}
 								DefaultString("{{ $column.Name }}"),
 							{{ end }}
 							{{ if eq $column.GoType "bool" }}

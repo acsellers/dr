@@ -264,7 +264,7 @@ func (c Column) NonZeroCheck() string {
 func (c Column) Preset() bool {
 	switch c.GoType {
 	case "int", "string", "bool", "&{time.Time}", "&{time Time}":
-		return c.Tag.Get("length") == ""
+		return c.Tag.Get("length") == "" && c.Tag.Get("type") == ""
 	default:
 		return false
 	}
