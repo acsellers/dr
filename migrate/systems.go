@@ -13,6 +13,7 @@ type GenericDB struct {
 	DB                *sql.DB
 	Specific          Alterer
 	Convert           Translator
+	AlternateNames    map[string]string
 	Log               *log.Logger
 	PrimaryKeyDef     string
 	LengthableColumns map[string]bool
@@ -64,10 +65,14 @@ func (g *GenericDB) CreateTable(table *schema.Table) error {
 				),
 			)
 		default:
+			ct := strings.ToUpper(column.Type)
+			if g.AlternateNames != nil && g.AlternateNames[ct] != "" {
+				ct = g.AlternateNames[ct]
+			}
 			coldef := fmt.Sprintf(
 				"%s %s",
 				g.Convert.SQLColumn(table.Name, column.Name),
-				strings.ToUpper(column.Type),
+				ct,
 			)
 			if column.Length != 0 && g.LengthableColumns[column.Type] {
 				coldef += fmt.Sprintf(
@@ -102,11 +107,13 @@ func (g *GenericDB) CreateTable(table *schema.Table) error {
 	}
 
 	sql += strings.Join(defs, ", ") + ")"
+	fmt.Println(sql, vals)
 	_, err := g.DB.Exec(sql, vals...)
 	if err != nil {
 		return fmt.Errorf("Error Creating Table\nSQL: %s\nError: %s", sql, err.Error())
 	}
 
+	fmt.Println("Created Table")
 	for _, index := range table.Index {
 		ok, err := g.HasIndex(table, index)
 		if err != nil {
@@ -393,6 +400,7 @@ func (p *PostgresDB) HasColumn(table *schema.Table, col *schema.Column) (bool, e
 
 func (p *PostgresDB) CreateTable(table *schema.Table) error {
 	p.GenericDB.Specific = p
+	p.GenericDB.AlternateNames = map[string]string{"BLOB": "BYTEA"}
 	p.GenericDB.PrimaryKeyDef = "%s SERIAL PRIMARY KEY"
 	p.GenericDB.LengthableColumns = p.LengthableColumns()
 	return p.GenericDB.CreateTable(table)

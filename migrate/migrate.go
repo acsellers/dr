@@ -150,11 +150,13 @@ func (d *Database) Migrate() error {
 	wait := []*schema.Table{}
 	for _, table := range d.NewTables {
 		if d.ForeignKeysSatisfied(table) {
+			fmt.Println("Maybe", table.Name)
 			err = d.CreateTable(table)
 			if err != nil {
 				return err
 			}
 		} else {
+			fmt.Println("Not", table.Name)
 			wait = append(wait, table)
 		}
 	}
