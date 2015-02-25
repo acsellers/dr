@@ -358,10 +358,11 @@ func (scope internalScope)	innerJoin(name string, things ...Scope) internalScope
 }
 
 func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
+	stdName := scope.conn.SQLTable(joinee.scopeName())
 	ts := Schema.Tables[name]
 	for _, hm := range ts.HasMany {
 		parentMatch := hm.Parent.Name == name && hm.Child.Name == joinee.scopeName()
-		if parentMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
+		if parentMatch && (joinee.tableName() == stdName || joinee.tableName() == hm.Alias) {
 			pkc := hm.Parent.PrimaryKeyColumn()
 			return fmt.Sprintf(
 				"%s.%s = %s.%s",
@@ -372,7 +373,7 @@ func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
 			), true
 		}
 		childMatch := hm.Child.Name == name && hm.Parent.Name == joinee.scopeName()
-		if childMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
+		if childMatch && (joinee.tableName() == stdName || joinee.tableName() == hm.Alias) {
 			pkc := hm.Parent.PrimaryKeyColumn()
 			return fmt.Sprintf(
 				"%s.%s = %s.%s",
@@ -385,7 +386,7 @@ func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
 	}
 	for _, hm := range ts.ChildOf {
 		parentMatch := hm.Parent.Name == name && hm.Child.Name == joinee.scopeName()
-		if parentMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
+		if parentMatch && (joinee.tableName() == stdName || joinee.tableName() == hm.Alias) {
 			pkc := hm.Parent.PrimaryKeyColumn()
 			return fmt.Sprintf(
 				"%s.%s = %s.%s",
@@ -396,7 +397,7 @@ func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
 			), true
 		}
 		childMatch := hm.Child.Name == name && hm.Parent.Name == joinee.scopeName()
-		if childMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
+		if childMatch && (joinee.tableName() == stdName || joinee.tableName() == hm.Alias) {
 			pkc := hm.Parent.PrimaryKeyColumn()
 			return fmt.Sprintf(
 				"%s.%s = %s.%s",
@@ -409,7 +410,7 @@ func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
 	}
 	for _, hm := range ts.HasOne {
 		parentMatch := hm.Parent.Name == name && hm.Child.Name == joinee.scopeName()
-		if parentMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
+		if parentMatch && (joinee.tableName() == stdName || joinee.tableName() == hm.Alias) {
 			pkc := hm.Parent.PrimaryKeyColumn()
 			return fmt.Sprintf(
 				"%s.%s = %s.%s",
@@ -420,7 +421,7 @@ func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
 			), true
 		}
 		childMatch := hm.Child.Name == name && hm.Parent.Name == joinee.scopeName()
-		if childMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
+		if childMatch && (joinee.tableName() == stdName || joinee.tableName() == hm.Alias) {
 			pkc := hm.Parent.PrimaryKeyColumn()
 			return fmt.Sprintf(
 				"%s.%s = %s.%s",
@@ -433,7 +434,7 @@ func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
 	}
 	for _, hm := range ts.BelongsTo {
 		parentMatch := hm.Parent.Name == name && hm.Child.Name == joinee.scopeName()
-		if parentMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
+		if parentMatch && (joinee.tableName() == stdName || joinee.tableName() == hm.Alias) {
 			pkc := hm.Parent.PrimaryKeyColumn()
 			return fmt.Sprintf(
 				"%s.%s = %s.%s",
@@ -444,7 +445,7 @@ func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
 			), true
 		}
 		childMatch := hm.Child.Name == name && hm.Parent.Name == joinee.scopeName()
-		if childMatch && (joinee.tableName() == joinee.scopeName() || joinee.tableName() == hm.Alias) {
+		if childMatch && (joinee.tableName() == stdName || joinee.tableName() == hm.Alias) {
 			pkc := hm.Parent.PrimaryKeyColumn()
 			return fmt.Sprintf(
 				"%s.%s = %s.%s",
