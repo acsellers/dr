@@ -368,7 +368,7 @@ func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
 				"%s.%s = %s.%s",
 				scope.conn.SQLTable(hm.Parent.Name),
 				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
-				scope.conn.SQLTable(joinee.tableName()),
+				joinee.tableName(),
 				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
 			), true
 		}
@@ -377,7 +377,7 @@ func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
 			pkc := hm.Parent.PrimaryKeyColumn()
 			return fmt.Sprintf(
 				"%s.%s = %s.%s",
-				scope.conn.SQLTable(joinee.tableName()),
+				joinee.tableName(),
 				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
 				scope.conn.SQLTable(hm.Child.Name),
 				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
@@ -392,7 +392,7 @@ func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
 				"%s.%s = %s.%s",
 				scope.conn.SQLTable(hm.Parent.Name),
 				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
-				scope.conn.SQLTable(joinee.tableName()),
+				joinee.tableName(),
 				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
 			), true
 		}
@@ -401,7 +401,7 @@ func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
 			pkc := hm.Parent.PrimaryKeyColumn()
 			return fmt.Sprintf(
 				"%s.%s = %s.%s",
-				scope.conn.SQLTable(joinee.tableName()),
+				joinee.tableName(),
 				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
 				scope.conn.SQLTable(hm.Child.Name),
 				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
@@ -416,7 +416,7 @@ func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
 				"%s.%s = %s.%s",
 				scope.conn.SQLTable(hm.Parent.Name),
 				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
-				scope.conn.SQLTable(joinee.tableName()),
+				joinee.tableName(),
 				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
 			), true
 		}
@@ -425,7 +425,7 @@ func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
 			pkc := hm.Parent.PrimaryKeyColumn()
 			return fmt.Sprintf(
 				"%s.%s = %s.%s",
-				scope.conn.SQLTable(joinee.tableName()),
+				joinee.tableName(),
 				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
 				scope.conn.SQLTable(hm.Child.Name),
 				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
@@ -440,7 +440,7 @@ func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
 				"%s.%s = %s.%s",
 				scope.conn.SQLTable(hm.Parent.Name),
 				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
-				scope.conn.SQLTable(joinee.tableName()),
+				joinee.tableName(),
 				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),
 			), true
 		}
@@ -449,7 +449,7 @@ func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
 			pkc := hm.Parent.PrimaryKeyColumn()
 			return fmt.Sprintf(
 				"%s.%s = %s.%s",
-				scope.conn.SQLTable(joinee.tableName()),
+				joinee.tableName(),
 				scope.conn.SQLColumn(hm.Parent.Name, pkc.Name),
 				scope.conn.SQLTable(hm.Child.Name),
 				scope.conn.SQLColumn(hm.Child.Name, hm.ChildColumn.Name),

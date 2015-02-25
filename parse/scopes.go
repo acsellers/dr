@@ -478,9 +478,9 @@ func (scope {{ .Name }}Scope) Or(scopes ...Scope) {{ .Name }}Scope {
 	{{ if $column.SimpleType }}
 		func (scope {{ $table.Name }}Scope) {{ $column.Name }}() {{ $table.Name }}Scope {
 			scope.currentColumn =
-				scope.conn.SQLTable(scope.tableName()) +
+				scope.tableName() +
 					"." +
-					scope.conn.SQLColumn(scope.tableName(), "{{ $column.Name }}")
+					scope.conn.SQLColumn(scope.scopeName(), "{{ $column.Name }}")
 			scope.currentAlias = ""
 			scope.isDistinct = false
 			return scope
