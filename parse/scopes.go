@@ -418,7 +418,7 @@ func (scope {{ .Name }}Scope) DeleteSQL() (string, []interface{}) {
 	cs, cv := scope.condSQL()
 
 	if cs == "" {
-		sql := fmt.Sprintf("DELETE FROM %s",scope.table, cs)
+		sql := fmt.Sprintf("DELETE FROM %s",scope.table)
 		return sql, []interface{}{}
 	} else {
 		sql := fmt.Sprintf("DELETE FROM %s WHERE %s",scope.table, cs)
