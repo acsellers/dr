@@ -24,7 +24,7 @@ type Scope interface {
 	joinable() string
 	tableName() string
 	conds() []condition
-	internal() internalScope
+	internal() *internalScope
 }
 
 func (c *Conn) Exec(query string, args ...interface{}) (sql.Result, error) {
@@ -85,11 +85,11 @@ type internalScope struct {
 	updates                     map[string]interface{}
 }
 
-func (scope internalScope) Conn() *Conn {
+func (scope *internalScope) Conn() *Conn {
 	return scope.conn
 }
 
-func (scope internalScope) conds() []condition {
+func (scope *internalScope) conds() []condition {
 	return scope.conditions
 }
 
@@ -146,7 +146,7 @@ func (s *internalScope) query() (string, []interface{}) {
 	return strings.Join(sql, " "), vals
 }
 
-func (scope internalScope) conditionSQL() (string, []interface{}) {
+func (scope *internalScope) conditionSQL() (string, []interface{}) {
 	var vals []interface{}
 	conds := []string{}
 	for _, condition := range scope.conditions {
@@ -156,7 +156,7 @@ func (scope internalScope) conditionSQL() (string, []interface{}) {
 	return strings.Join(conds, " AND "), vals
 }
 
-func (scope internalScope) Eq(val interface{}) internalScope {
+func (scope *internalScope) Eq(val interface{}) *internalScope {
 	c := condition{column: scope.currentColumn}
 	if val == nil {
 		c.cond = "IS NULL"
@@ -169,7 +169,7 @@ func (scope internalScope) Eq(val interface{}) internalScope {
 	return scope
 }
 
-func (scope internalScope) Neq(val interface{}) internalScope {
+func (scope *internalScope) Neq(val interface{}) *internalScope {
 	c := condition{column: scope.currentColumn}
 	if val == nil {
 		c.cond = "IS NOT NULL"
@@ -182,7 +182,7 @@ func (scope internalScope) Neq(val interface{}) internalScope {
 	return scope
 }
 
-func (scope internalScope) Gt(val interface{}) internalScope {
+func (scope *internalScope) Gt(val interface{}) *internalScope {
 	c := condition{
 		column: scope.currentColumn,
 		cond:   "> ?",
@@ -193,7 +193,7 @@ func (scope internalScope) Gt(val interface{}) internalScope {
 	return scope
 }
 
-func (scope internalScope) Gte(val interface{}) internalScope {
+func (scope *internalScope) Gte(val interface{}) *internalScope {
 	c := condition{
 		column: scope.currentColumn,
 		cond:   ">= ?",
@@ -204,7 +204,7 @@ func (scope internalScope) Gte(val interface{}) internalScope {
 	return scope
 }
 
-func (scope internalScope) Lt(val interface{}) internalScope {
+func (scope *internalScope) Lt(val interface{}) *internalScope {
 	c := condition{
 		column: scope.currentColumn,
 		cond:   "< ?",
@@ -215,7 +215,7 @@ func (scope internalScope) Lt(val interface{}) internalScope {
 	return scope
 }
 
-func (scope internalScope) Lte(val interface{}) internalScope {
+func (scope *internalScope) Lte(val interface{}) *internalScope {
 
 	c := condition{
 		column: scope.currentColumn,
@@ -228,7 +228,7 @@ func (scope internalScope) Lte(val interface{}) internalScope {
 }
 
 // multi value conditions
-func (scope internalScope) Between(lower, upper interface{}) internalScope {
+func (scope *internalScope) Between(lower, upper interface{}) *internalScope {
 	c := condition{
 		column: scope.currentColumn,
 		cond:   "BETWEEN ? AND ?",
@@ -239,7 +239,7 @@ func (scope internalScope) Between(lower, upper interface{}) internalScope {
 	return scope
 }
 
-func (scope internalScope) In(vals ...interface{}) internalScope {
+func (scope *internalScope) In(vals ...interface{}) *internalScope {
 	if len(vals) == 0 {
 		if reflect.TypeOf(vals[0]).Kind() == reflect.Slice {
 			rv := reflect.ValueOf(vals[0])
@@ -261,7 +261,7 @@ func (scope internalScope) In(vals ...interface{}) internalScope {
 	return scope
 }
 
-func (scope internalScope) NotIn(vals ...interface{}) internalScope {
+func (scope *internalScope) NotIn(vals ...interface{}) *internalScope {
 	vc := make([]string, len(vals))
 	c := condition{
 		column: scope.currentColumn,
@@ -273,7 +273,7 @@ func (scope internalScope) NotIn(vals ...interface{}) internalScope {
 	return scope
 }
 
-func (scope internalScope) Like(str string) internalScope {
+func (scope *internalScope) Like(str string) *internalScope {
 	c := condition{
 		column: scope.currentColumn,
 		cond:   "LIKE ?",
@@ -284,7 +284,7 @@ func (scope internalScope) Like(str string) internalScope {
 	return scope
 }
 
-func (scope internalScope) Where(sql string, vals ...interface{}) internalScope {
+func (scope *internalScope) Where(sql string, vals ...interface{}) *internalScope {
 	c := condition{
 		cond: sql,
 		vals: vals,
@@ -294,7 +294,7 @@ func (scope internalScope) Where(sql string, vals ...interface{}) internalScope 
 }
 
 
-func (scope internalScope)	outerJoin(name string, things ...Scope) internalScope {
+func (scope *internalScope)	outerJoin(name string, things ...Scope) *internalScope {
 	for _, thing := range things {
 		thing = thing.SetConn(scope.conn)
 		if joinString, ok := scope.joinOn(name, thing); ok {
@@ -325,7 +325,7 @@ func (scope internalScope)	outerJoin(name string, things ...Scope) internalScope
 	return scope
 }
 
-func (scope internalScope)	innerJoin(name string, things ...Scope) internalScope {
+func (scope *internalScope)	innerJoin(name string, things ...Scope) *internalScope {
 	for _, thing := range things {
 		thing = thing.SetConn(scope.conn)
 		if joinString, ok := scope.joinOn(name, thing); ok {
@@ -357,7 +357,7 @@ func (scope internalScope)	innerJoin(name string, things ...Scope) internalScope
 	return scope
 }
 
-func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
+func (scope *internalScope) joinOn(name string, joinee Scope) (string, bool) {
 	stdName := scope.conn.SQLTable(joinee.scopeName())
 	ts := Schema.Tables[name]
 	for _, hm := range ts.HasMany {
@@ -459,7 +459,11 @@ func (scope internalScope) joinOn(name string, joinee Scope) (string, bool) {
 	return "", false
 }
 
-func (scope internalScope) PluckString() ([]string, error) {
+func (scope internalScope) Clone() internalScope {
+	return scope
+}
+
+func (scope *internalScope) PluckString() ([]string, error) {
 	if scope.isDistinct{
 		scope.currentColumn = "DISTINCT " + scope.currentColumn
 	}
@@ -483,7 +487,7 @@ func (scope internalScope) PluckString() ([]string, error) {
 	return vals, nil
 }
 
-func (scope internalScope) PluckInt() ([]int64, error) {
+func (scope *internalScope) PluckInt() ([]int64, error) {
 	if scope.isDistinct{
 		scope.currentColumn = "DISTINCT " + scope.currentColumn
 	}
@@ -508,7 +512,7 @@ func (scope internalScope) PluckInt() ([]int64, error) {
 	return vals, nil
 }
 
-func (scope internalScope) PluckTime() ([]time.Time, error) {
+func (scope *internalScope) PluckTime() ([]time.Time, error) {
 	if scope.isDistinct{
 		scope.currentColumn = "DISTINCT " + scope.currentColumn
 	}
@@ -533,11 +537,11 @@ func (scope internalScope) PluckTime() ([]time.Time, error) {
 	return vals, nil
 }
 
-func (scope internalScope) internal() internalScope {
+func (scope *internalScope) internal() *internalScope {
 	return scope
 }
 
-func (scope internalScope) apply(s Scope) internalScope {
+func (scope *internalScope) apply(s Scope) *internalScope {
 	as := s.internal()
 	scope.conditions = append(scope.conditions, as.conditions...)
 	scope.joins = append(scope.joins, as.joins...)
@@ -548,7 +552,7 @@ func (scope internalScope) apply(s Scope) internalScope {
 	return scope
 }
 
-func (scope internalScope) pluckStruct(name string, result interface{}) error {
+func (scope *internalScope) pluckStruct(name string, result interface{}) error {
 	destSlice := reflect.ValueOf(result).Elem()
 	tempSlice := reflect.Zero(destSlice.Type())
 	elem := destSlice.Type().Elem()
