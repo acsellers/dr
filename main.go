@@ -31,9 +31,7 @@ func main() {
 			Usage:     "Create the access library",
 			Action: func(c *cli.Context) {
 				pkg := parse.Package{Funcs: make(map[string][]parse.Func)}
-				pkg.WriteLibraryFiles()
 				names, _ := filepath.Glob("*.gp")
-
 				files := make([]*os.File, 0, len(names))
 				for _, name := range names {
 					f, err := os.Open(name)
@@ -47,6 +45,7 @@ func main() {
 				if err != nil {
 					log.Fatal("Couldn't parse files got error:", err)
 				}
+				pkg.WriteLibraryFiles()
 			},
 		},
 	}
