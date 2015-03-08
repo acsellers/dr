@@ -62,12 +62,12 @@ func (c *Conn) Clone() *Conn {
 
 {{ range $table := .Tables }}
 type {{ .Name }}Scope struct {
-	internalScope
+	*internalScope
 }
 
 func New{{ .Name }}Scope(c *Conn) *{{ .Name }}Scope {
 	return &{{ .Name }}Scope {
-		internalScope{
+		&internalScope{
 			conn:          c,
 			table:         c.SQLTable("{{ .Name }}"),
 			currentColumn: c.SQLTable("{{ .Name }}") + "." + c.SQLColumn("{{ .Name }}", "{{ .PrimaryKeyColumn.Name }}"),
@@ -75,7 +75,7 @@ func New{{ .Name }}Scope(c *Conn) *{{ .Name }}Scope {
 	}
 }
 
-func (scope {{ .Name }}Scope) SetConn(conn *Conn) Scope {
+func (scope *{{ .Name }}Scope) SetConn(conn *Conn) Scope {
 	scope.conn = conn
 	return scope
 }
@@ -86,7 +86,7 @@ func ({{ .Name }}Scope) scopeName() string {
 
 // basic conditions
 func (scope *{{ .Name }}Scope) Eq(val interface{}) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 	scope.internalScope.Eq(val)
@@ -94,7 +94,7 @@ func (scope *{{ .Name }}Scope) Eq(val interface{}) *{{ .Name }}Scope {
 }
 
 func (scope *{{ .Name }}Scope) Neq(val interface{}) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 	scope.internalScope.Neq(val)
@@ -102,7 +102,7 @@ func (scope *{{ .Name }}Scope) Neq(val interface{}) *{{ .Name }}Scope {
 }
 
 func (scope *{{ .Name }}Scope) Gt(val interface{}) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 	scope.internalScope.Gt(val)
@@ -110,7 +110,7 @@ func (scope *{{ .Name }}Scope) Gt(val interface{}) *{{ .Name }}Scope {
 }
 
 func (scope *{{ .Name }}Scope) Gte(val interface{}) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 	scope.internalScope.Gte(val)
@@ -118,7 +118,7 @@ func (scope *{{ .Name }}Scope) Gte(val interface{}) *{{ .Name }}Scope {
 }
 
 func (scope *{{ .Name }}Scope) Lt(val interface{}) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 	scope.internalScope.Lt(val)
@@ -126,7 +126,7 @@ func (scope *{{ .Name }}Scope) Lt(val interface{}) *{{ .Name }}Scope {
 }
 
 func (scope *{{ .Name }}Scope) Lte(val interface{}) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 	scope.internalScope.Lte(val)
@@ -136,7 +136,7 @@ func (scope *{{ .Name }}Scope) Lte(val interface{}) *{{ .Name }}Scope {
 
 // multi value conditions
 func (scope *{{ .Name }}Scope) Between(lower, upper interface{}) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 	scope.internalScope.Between(lower, upper)
@@ -144,7 +144,7 @@ func (scope *{{ .Name }}Scope) Between(lower, upper interface{}) *{{ .Name }}Sco
 }
 
 func (scope *{{ .Name }}Scope) In(vals ...interface{}) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 	scope.internalScope.In(vals...)
@@ -152,7 +152,7 @@ func (scope *{{ .Name }}Scope) In(vals ...interface{}) *{{ .Name }}Scope {
 }
 
 func (scope *{{ .Name }}Scope) NotIn(vals ...interface{}) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 	scope.internalScope.NotIn(vals...)
@@ -160,7 +160,7 @@ func (scope *{{ .Name }}Scope) NotIn(vals ...interface{}) *{{ .Name }}Scope {
 }
 
 func (scope *{{ .Name }}Scope) Like(str string) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 	scope.internalScope.Like(str)
@@ -168,7 +168,7 @@ func (scope *{{ .Name }}Scope) Like(str string) *{{ .Name }}Scope {
 }
 
 func (scope *{{ .Name }}Scope) Where(sql string, vals ...interface{}) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 	scope.internalScope.Where(sql, vals...)
@@ -177,7 +177,7 @@ func (scope *{{ .Name }}Scope) Where(sql string, vals ...interface{}) *{{ .Name 
 
 // ordering conditions
 func (scope *{{ .Name }}Scope) Order(ordering string) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 	scope.order = append(scope.order, ordering)
@@ -185,7 +185,7 @@ func (scope *{{ .Name }}Scope) Order(ordering string) *{{ .Name }}Scope {
 }
 
 func (scope *{{ .Name }}Scope) Desc() *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -194,7 +194,7 @@ func (scope *{{ .Name }}Scope) Desc() *{{ .Name }}Scope {
 }
 
 func (scope *{{ .Name }}Scope) Asc() *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -204,7 +204,7 @@ func (scope *{{ .Name }}Scope) Asc() *{{ .Name }}Scope {
 
 // Join funcs
 func (scope *{{ .Name }}Scope)	OuterJoin(things ...Scope) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -213,14 +213,19 @@ func (scope *{{ .Name }}Scope)	OuterJoin(things ...Scope) *{{ .Name }}Scope {
 }
 
 func (scope *{{ .Name }}Scope)	InnerJoin(things ...Scope) *{{ .Name }}Scope {
-	return {{.Name}}Scope{scope.internalScope.innerJoin("{{ .Name }}", things...)}
+	if scope.conn.{{ .Name }} == scope {
+		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
+	}
+
+	scope.internalScope.innerJoin("{{ .Name }}", things...)
+	return scope
 }
 
 // JoinBy allows you to specify the exact join SQL statment for one or more
 // tables. You can also pass the Scope objects that you are manually joining, 
 // which are recorded for future Joining to work off of or to be Include'd.
 func (scope *{{ .Name }}Scope)	JoinBy(joins string, joinedScopes ...Scope) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -249,7 +254,7 @@ func (scope *{{ .Name }}Scope) tableName() string {
 
 // aggregation filtering
 func (scope *{{ .Name }}Scope) Having(sql string, vals ...interface{}) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -259,7 +264,7 @@ func (scope *{{ .Name }}Scope) Having(sql string, vals ...interface{}) *{{ .Name
 }
 
 func (scope *{{ .Name }}Scope) GroupBySQL(cols ...string) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -269,7 +274,7 @@ func (scope *{{ .Name }}Scope) GroupBySQL(cols ...string) *{{ .Name }}Scope {
 
 // Result count filtering
 func (scope *{{ .Name }}Scope) Limit(limit int64) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -278,7 +283,7 @@ func (scope *{{ .Name }}Scope) Limit(limit int64) *{{ .Name }}Scope {
 }
 
 func (scope *{{ .Name }}Scope) Offset(offset int64) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -288,7 +293,7 @@ func (scope *{{ .Name }}Scope) Offset(offset int64) *{{ .Name }}Scope {
 
 // misc scope operations
 func (scope *{{ .Name }}Scope) Clear() *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -303,7 +308,7 @@ func (scope *{{ .Name }}Scope) Clear() *{{ .Name }}Scope {
 }
 
 func (scope *{{ .Name }}Scope) ClearAll() *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -316,8 +321,8 @@ func (scope *{{ .Name }}Scope) Base() *{{ .Name }}Scope {
 }
 
 // struct saving and loading
-func (scope *{{ .Name }}Scope) Find(id interface{}) (*{{ .Name }}, error) {
-	if scope.conn.{{ .Name }}Scope == scope {
+func (scope *{{ .Name }}Scope) Find(id interface{}) ({{ .Name }}, error) {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -325,7 +330,7 @@ func (scope *{{ .Name }}Scope) Find(id interface{}) (*{{ .Name }}, error) {
 }
 
 func (scope *{{ .Name }}Scope) Retrieve() ({{ .Name }}, error) {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -346,7 +351,7 @@ func (scope *{{ .Name }}Scope) Retrieve() ({{ .Name }}, error) {
 }
 
 func (scope *{{ .Name }}Scope) RetrieveAll() ([]{{ .Name }}, error) {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -378,7 +383,7 @@ func (scope *{{ .Name }}Scope) RetrieveAll() ([]{{ .Name }}, error) {
 }
 
 func (scope *{{ .Name }}Scope) SaveAll(vals []{{ .Name }}) error {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -394,7 +399,7 @@ func (scope *{{ .Name }}Scope) SaveAll(vals []{{ .Name }}) error {
 
 // Scope attribute updating
 func (scope *{{ .Name }}Scope) Set(val interface{}) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -414,7 +419,7 @@ func (scope *{{ .Name }}Scope) Update() error {
 
 // subset plucking
 func (scope *{{ .Name }}Scope) Pick(sql string) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -425,7 +430,7 @@ func (scope *{{ .Name }}Scope) Pick(sql string) *{{ .Name }}Scope {
 }
 
 func (scope *{{ .Name }}Scope) PluckStruct(result interface{}) error {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -434,7 +439,7 @@ func (scope *{{ .Name }}Scope) PluckStruct(result interface{}) error {
 
 // direct sql
 func (scope *{{ .Name }}Scope) Count() int64 {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -442,7 +447,7 @@ func (scope *{{ .Name }}Scope) Count() int64 {
 }
 
 func (scope *{{ .Name }}Scope) CountBy(sql string) int64 {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -459,7 +464,7 @@ func (scope *{{ .Name }}Scope) CountBy(sql string) int64 {
 }
 
 func (scope *{{ .Name }}Scope) CountOf() int64 {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -470,7 +475,7 @@ func (scope *{{ .Name }}Scope) CountOf() int64 {
 }
 
 func (scope *{{ .Name }}Scope) UpdateBySQL(sql string, vals ...interface{}) error {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -483,7 +488,7 @@ func (scope *{{ .Name }}Scope) UpdateBySQL(sql string, vals ...interface{}) erro
 }
 
 func (scope *{{ .Name }}Scope) Delete() error {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -512,8 +517,8 @@ func (scope {{ .Name }}Scope) condSQL() (string, []interface{}) {
 }
 
 // special
-func (scope {{ .Name }}Scope) Clone() {{ .Name }}Scope {
-	return scope
+func (scope {{ .Name }}Scope) Clone() *{{ .Name }}Scope {
+	return &scope
 }
 
 func (scope {{ .Name }}Scope) QuerySQL() (string, []interface{}) {
@@ -564,7 +569,7 @@ func (scope {{ .Name }}Scope) DeleteSQL() (string, []interface{}) {
 
 // As sets a column alias
 func (scope *{{ .Name }}Scope) As(alias string) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -574,7 +579,7 @@ func (scope *{{ .Name }}Scope) As(alias string) *{{ .Name }}Scope {
 
 // Alias sets a table alias
 func (scope *{{ .Name }}Scope) Alias(alias string) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -583,7 +588,7 @@ func (scope *{{ .Name }}Scope) Alias(alias string) *{{ .Name }}Scope {
 }
 
 func (scope *{{ .Name }}Scope) Distinct() *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -592,7 +597,7 @@ func (scope *{{ .Name }}Scope) Distinct() *{{ .Name }}Scope {
 }
 
 func (scope *{{ .Name }}Scope) And(scopes ...Scope) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -603,7 +608,7 @@ func (scope *{{ .Name }}Scope) And(scopes ...Scope) *{{ .Name }}Scope {
 }
 
 func (scope *{{ .Name }}Scope) Or(scopes ...Scope) *{{ .Name }}Scope {
-	if scope.conn.{{ .Name }}Scope == scope {
+	if scope.conn.{{ .Name }} == scope {
 		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
 	}
 
@@ -633,8 +638,8 @@ func (scope *{{ .Name }}Scope) Or(scopes ...Scope) *{{ .Name }}Scope {
 {{ range $column := .Columns }}
 	{{ if $column.SimpleType }}
 		func (scope *{{ $table.Name }}Scope) {{ $column.Name }}() *{{ $table.Name }}Scope {
-			if scope.conn.{{ .Name }}Scope == scope {
-				scope = &{{.Name}}Scope{scope.internalScope.Clone()}
+			if scope.conn.{{ $table.Name }} == scope {
+				scope = &{{ $table.Name }}Scope{scope.internalScope.Clone()}
 			}
 
 			scope.currentColumn =
@@ -745,7 +750,7 @@ type mapper{{ .Name }} struct {
 	Scanners []interface{}
 }
 
-func mapperFor{{ .Name }}(scope  {{ .Name }}Scope) *mapper{{ .Name }} {
+func mapperFor{{ .Name }}(scope  *{{ .Name }}Scope) *mapper{{ .Name }} {
 	m := &mapper{{ .Name }}{}
 	m.Columns = []string{ {{ range $column := .Columns }} {{ if $column.SimpleType }} scope.tableName() + "." + scope.conn.SQLColumn("{{ $table.Name }}", "{{ $column.Name }}"), {{ end }} {{ end }} }
 	m.Scanners = []interface{}{
@@ -780,14 +785,15 @@ func mapperFor{{ .Name }}(scope  {{ .Name }}Scope) *mapper{{ .Name }} {
 				func (t {{ $table.Name }}) {{ $relate.Name }}(c *Conn) ([]{{ $relate.Table }}, error) {
 					return t.{{ $relate.Name }}Scope(c).RetrieveAll()
 				}
-				func (t {{ $table.Name }}) {{ $relate.Name }}Scope(c *Conn) {{ $relate.Table }}Scope {
+				func (t {{ $table.Name }}) {{ $relate.Name }}Scope(c *Conn) *{{ $relate.Table }}Scope {
 					return c.{{ $relate.Table }}.{{ $relate.ColumnName }}().Eq(t.{{ $table.PrimaryKeyColumn.Name }})
 				}
-				func (scope {{ $table.Name }}Scope) {{ $relate.Name }}Scope() {{ $relate.Table }}Scope {
+				func (scope *{{ $table.Name }}Scope) {{ $relate.Name }}Scope() *{{ $relate.Table }}Scope {
 					{{ if eq $relate.Name $relate.Table }}
-						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}).internal()}
+						return &{{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}).internal()}
 					{{ else }}
-						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}.Alias("{{ $relate.Name }}")).internal()}.Alias("{{ $relate.Name }}")
+						rs := &{{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}.Alias("{{ $relate.Name }}")).internal()}
+						return rs.Alias("{{ $relate.Name }}")
 					{{ end }}
 				}
 			{{ end }}
@@ -799,14 +805,15 @@ func mapperFor{{ .Name }}(scope  {{ .Name }}Scope) *mapper{{ .Name }} {
 				func (t {{ $table.Name }}) {{ $relate.Name }}(c *Conn) ({{ $relate.Table }}, error) {
 					return t.{{ $relate.Name }}Scope(c).Retrieve()
 				}
-				func (t {{ $table.Name }}) {{ $relate.Name }}Scope(c *Conn) {{ $relate.Table }}Scope {
+				func (t {{ $table.Name }}) {{ $relate.Name }}Scope(c *Conn) *{{ $relate.Table }}Scope {
 					return c.{{ $relate.Table }}.Eq(t.{{ $relate.Name }}ID)
 				}
-				func (scope {{ $table.Name }}Scope) {{ $relate.Name }}Scope() {{ $relate.Table }}Scope {
+				func (scope *{{ $table.Name }}Scope) {{ $relate.Name }}Scope() *{{ $relate.Table }}Scope {
 					{{ if eq $relate.Name $relate.Table }}
-						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}).internal()}
+						return &{{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}).internal()}
 					{{ else }}
-						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}.Alias("{{ $relate.Name }}")).internal()}.Alias("{{ $relate.Name }}")
+						rs := &{{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}.Alias("{{ $relate.Name }}")).internal()}
+						return rs.Alias("{{ $relate.Name }}")
 					{{ end }}
 				}
 			{{ end }}
@@ -818,14 +825,15 @@ func mapperFor{{ .Name }}(scope  {{ .Name }}Scope) *mapper{{ .Name }} {
 				func (t {{ $table.Name }}) {{ $relate.Name }}(c *Conn) ({{ $relate.Table }}, error) {
 					return t.{{ $relate.Name }}Scope(c).Retrieve()
 				}
-				func (t {{ $table.Name }}) {{ $relate.Name }}Scope(c *Conn) {{ $relate.Table }}Scope {
+				func (t {{ $table.Name }}) {{ $relate.Name }}Scope(c *Conn) *{{ $relate.Table }}Scope {
 					return c.{{ $relate.Table }}.{{ $relate.ColumnName }}().Eq(t.{{ $table.PrimaryKeyColumn.Name }})
 				}
-				func (scope {{ $table.Name }}Scope) {{ $relate.Name }}Scope() {{ $relate.Table }}Scope {
+				func (scope *{{ $table.Name }}Scope) {{ $relate.Name }}Scope() *{{ $relate.Table }}Scope {
 					{{ if eq $relate.Name $relate.Table }}
-						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}).internal()}
+						return &{{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}).internal()}
 					{{ else }}
-						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}.Alias("{{ $relate.Name }}")).internal()}.Alias("{{ $relate.Name }}")
+						rs := &{{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}.Alias("{{ $relate.Name }}")).internal()}
+						return rs.Alias("{{ $relate.Name }}")
 					{{ end }}
 				}
 			{{ end }}
@@ -837,14 +845,15 @@ func mapperFor{{ .Name }}(scope  {{ .Name }}Scope) *mapper{{ .Name }} {
 				func (t {{ $table.Name }}) {{ $relate.Name }}(c *Conn) ({{ $relate.Table }}, error) {
 					return t.{{ $relate.Name }}Scope(c).Retrieve()
 				}
-				func (t {{ $table.Name }}) {{ $relate.Name }}Scope(c *Conn) {{ $relate.Table }}Scope {
+				func (t {{ $table.Name }}) {{ $relate.Name }}Scope(c *Conn) *{{ $relate.Table }}Scope {
 					return c.{{ $relate.Table }}.Eq(t.{{ $relate.Name }}ID)
 				}
-				func (scope {{ $table.Name }}Scope) {{ $relate.Name }}Scope() {{ $relate.Table }}Scope {
+				func (scope *{{ $table.Name }}Scope) {{ $relate.Name }}Scope() *{{ $relate.Table }}Scope {
 					{{ if eq $relate.Name $relate.Table }}
-						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}).internal()}
+						return &{{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}).internal()}
 					{{ else }}
-						return {{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}.Alias("{{ $relate.Name }}")).internal()}.Alias("{{ $relate.Name }}")
+						rs := &{{ $relate.Table }}Scope{scope.InnerJoin(scope.conn.{{ $relate.Table }}.Alias("{{ $relate.Name }}")).internal()}
+						return rs.Alias("{{ $relate.Name }}")
 					{{ end }}
 				}
 			{{ end }}

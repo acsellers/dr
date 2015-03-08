@@ -459,8 +459,8 @@ func (scope *internalScope) joinOn(name string, joinee Scope) (string, bool) {
 	return "", false
 }
 
-func (scope internalScope) Clone() internalScope {
-	return scope
+func (scope internalScope) Clone() *internalScope {
+	return &scope
 }
 
 func (scope *internalScope) PluckString() ([]string, error) {

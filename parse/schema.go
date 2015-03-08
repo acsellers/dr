@@ -143,11 +143,11 @@ func init() {
 
 {{ range $table := .Tables }}
 
-func (t {{ $table.Name }}) Scope() {{ $table.Name }}Scope {
+func (t {{ $table.Name }}) Scope() *{{ $table.Name }}Scope {
 	return t.cached_conn.{{ $table.Name }}.{{ .PrimaryKeyColumn.Name }}().Eq(t.{{ .PrimaryKeyColumn.Name }})
 }
 
-func (t {{ $table.Name }}) ToScope(c *Conn) {{ $table.Name }}Scope {
+func (t {{ $table.Name }}) ToScope(c *Conn) *{{ $table.Name }}Scope {
 	return c.{{ $table.Name }}.{{ .PrimaryKeyColumn.Name }}().Eq(t.{{ .PrimaryKeyColumn.Name }})
 }
 

@@ -488,9 +488,6 @@ func (pkg *Package) OutputTemplates() {
 }
 
 func (pkg *Package) WriteLibraryFiles() {
-	if _, err := os.Stat(pkg.Name() + "_lib.go"); err == nil {
-		return
-	}
 	b := &bytes.Buffer{}
 	err := tmpl.ExecuteTemplate(b, "lib", pkg)
 	if err != nil {
