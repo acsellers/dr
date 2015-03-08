@@ -39,9 +39,6 @@ func TestUserSave(t *testing.T) {
 	if u2.PermissionLevel != u.PermissionLevel {
 		t.Fatal("PermissionLevel Compare", u.PermissionLevel, u2.PermissionLevel)
 	}
-	/*if string(u2.CryptPassword) != string(u.CryptPassword) {
-		t.Fatal("CryptPassword Compare", u.CryptPassword, u2.CryptPassword)
-	}*/
 	if u2.ArticleCompensation != u.ArticleCompensation {
 		t.Fatal("ArticleCompensation Compare", u.ArticleCompensation, u2.ArticleCompensation)
 	}
@@ -65,9 +62,6 @@ func TestUserSave(t *testing.T) {
 	if u2.PermissionLevel != u.PermissionLevel {
 		t.Fatal("PermissionLevel Compare", u.PermissionLevel, u2.PermissionLevel)
 	}
-	/*(if string(u2.CryptPassword) != string(u.CryptPassword) {
-		t.Fatal("CryptPassword Compare", u.CryptPassword, u2.CryptPassword)
-	}*/
 	if u2.ArticleCompensation != u.ArticleCompensation {
 		t.Fatal("ArticleCompensation Compare", u.ArticleCompensation, u2.ArticleCompensation)
 	}
@@ -88,9 +82,6 @@ func TestUserSave(t *testing.T) {
 	if u2.PermissionLevel != u.PermissionLevel {
 		t.Fatal("PermissionLevel Compare", u.PermissionLevel, u2.PermissionLevel)
 	}
-	/*if string(u2.CryptPassword) != string(u.CryptPassword) {
-		t.Fatal("CryptPassword Compare", u.CryptPassword, u2.CryptPassword)
-	}*/
 	if u2.ArticleCompensation != u.ArticleCompensation {
 		t.Fatal("ArticleCompensation Compare", u.ArticleCompensation, u2.ArticleCompensation)
 	}
