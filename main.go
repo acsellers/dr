@@ -43,9 +43,9 @@ func main() {
 					files = append(files, f)
 					defer f.Close()
 				}
-				err = pkg.ParseSrc(files...)
+				err := pkg.ParseSrc(files...)
 				if err != nil {
-					log.Fatal("Couldn't parse files:", name, "got error:", err)
+					log.Fatal("Couldn't parse files got error:", err)
 				}
 			},
 		},
