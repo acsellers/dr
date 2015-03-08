@@ -31,19 +31,22 @@ func main() {
 			Usage:     "Create the access library",
 			Action: func(c *cli.Context) {
 				pkg := parse.Package{Funcs: make(map[string][]parse.Func)}
+				pkg.WriteLibraryFiles()
 				names, _ := filepath.Glob("*.gp")
 
+				files := make([]*os.File, 0, len(names))
 				for _, name := range names {
 					f, err := os.Open(name)
 					if err != nil {
 						log.Fatal("Couldn't open file:", name, "got error:", err)
 					}
-					err = pkg.ParseSrc(f)
-					f.Close()
+					files = append(files, f)
+					defer f.Close()
 					if err != nil {
 						log.Fatal("Couldn't parse file:", name, "got error:", err)
 					}
 				}
+				err = pkg.ParseSrc(files...)
 			},
 		},
 	}

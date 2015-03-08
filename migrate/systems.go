@@ -400,7 +400,10 @@ func (p *PostgresDB) HasColumn(table *schema.Table, col *schema.Column) (bool, e
 
 func (p *PostgresDB) CreateTable(table *schema.Table) error {
 	p.GenericDB.Specific = p
-	p.GenericDB.AlternateNames = map[string]string{"BLOB": "BYTEA"}
+	p.GenericDB.AlternateNames = map[string]string{
+		"BLOB":      "BYTEA",
+		"TIMESTAMP": "TIMESTAMP WITH TIME ZONE",
+	}
 	p.GenericDB.PrimaryKeyDef = "%s SERIAL PRIMARY KEY"
 	p.GenericDB.LengthableColumns = p.LengthableColumns()
 	return p.GenericDB.CreateTable(table)
