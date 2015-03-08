@@ -118,7 +118,7 @@ func TestUserSave(t *testing.T) {
 	if err != nil {
 		log.Fatal("CreatedAt Pluck", err)
 	}
-	if len(creation) != 1 || creation[0] != u.CreatedAt {
+	if len(creation) != 1 || !u.CreatedAt.Equal(creation[0]) {
 		log.Fatal("CreatedAt Retrieve", creation, u.CreatedAt)
 	}
 
