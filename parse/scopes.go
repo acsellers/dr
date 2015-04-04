@@ -637,7 +637,7 @@ func (scope *{{ .Name }}Scope) Or(scopes ...Scope) *{{ .Name }}Scope {
 
 {{ range $column := .Columns }}
 	{{ if $column.SimpleType }}
-		func (scope *{{ $table.Name }}Scope) {{ $column.Name }}() *{{ $table.Name }}Scope {
+		func (scope *{{ $table.Name }}Scope) {{ $column.Name }}(eq ...interface{}) *{{ $table.Name }}Scope {
 			if scope.conn.{{ $table.Name }} == scope {
 				scope = &{{ $table.Name }}Scope{scope.internalScope.Clone()}
 			}
@@ -648,6 +648,11 @@ func (scope *{{ .Name }}Scope) Or(scopes ...Scope) *{{ .Name }}Scope {
 					scope.conn.SQLColumn(scope.scopeName(), "{{ $column.Name }}")
 			scope.currentAlias = ""
 			scope.isDistinct = false
+			if len(eq) > 0 {
+				for _, ev := range eq {
+					scope.Eq(ev)
+				}
+			}
 			return scope
 		}
 

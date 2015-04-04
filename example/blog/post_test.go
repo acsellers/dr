@@ -59,6 +59,11 @@ func TestPostSave(t *testing.T) {
 		t.Fatal("Didn't LEFT JOIN correctly")
 	}
 
+	if c.User.OuterJoin(c.Post.Title(users[1].Name)).Count() != 1 {
+		t.Log(c.User.OuterJoin(c.Post.Title().Eq(users[1].Name)).QuerySQL())
+		t.Fatal("Didn't LEFT JOIN correctly")
+	}
+
 	posts, err := users[0].Post(c)
 	if err != nil {
 		t.Fatal("User.Post", err)
