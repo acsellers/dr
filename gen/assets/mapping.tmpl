@@ -1,0 +1,275 @@
+{{ define "int_mapper" }}
+	if v == nil {
+		// do nothing, use zero value
+	} else if s, ok := v.(int64); ok {
+		{{ if .MustNull }}
+			var temp int
+			temp = int(s)
+			(*m.Mapper.Current).{{ .Name }} = &temp
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = int(s)
+		{{ end }}
+	} else if b, ok := v.([]byte); ok {
+		i, err := strconv.Atoi(string(b))
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &i
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = i
+		{{ end }}
+		return err
+	}
+	return nil
+{{ end }}
+{{ define "string_mapper" }}
+	if v == nil {
+		// do nothing, use zero value
+	} else if s, ok := v.(string); ok {
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &s
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = s
+		{{ end }}
+	} else if s, ok := v.([]byte); ok {
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &string(s)
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = string(s)
+		{{ end }}
+	}
+
+	return nil
+{{ end }}
+{{ define "time_mapper" }}
+	if v == nil {
+		// do nothing, use zero value
+	} else if s, ok := v.(time.Time); ok {
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &s
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = s
+		{{ end }}
+	}
+
+	return nil
+{{ end }}
+{{ define "bool_mapper" }}
+	if v == nil {
+		// it is false or null, the zero values
+	} else if b, ok := v.(bool); ok {
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &b
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = b
+		{{ end }}
+	} else if i, ok := v.(int64); ok {
+		{{ if .MustNull }}
+			var tb bool
+			if i == 0 {
+				(*m.Mapper.Current).{{ .Name }} = &tb
+			} else {
+				tb = true
+				(*m.Mapper.Current).{{ .Name }} = &tb
+			}
+		{{ else }}
+			if i != 0 {
+				(*m.Mapper.Current).{{ .Name }} = true
+			}
+		{{ end }}
+	}
+
+	return nil
+{{ end }}
+{{ define "float64_mapper" }}
+	if v == nil {
+		// it is false or null, the zero values
+	} else if f, ok := v.(float64); ok {
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &f
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = f
+		{{ end }}
+	} else if i, ok := v.(int64); ok {
+		tf := float64(i)
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &tf
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = tf
+		{{ end }}
+	} else if i, ok := v.([]byte); ok {
+		f, err := strconv.ParseFloat(string(i), 64)
+		if err != nil {
+			return err
+		}
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &f
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = f
+		{{ end }}
+	}	else {
+		return fmt.Errorf("Value not recognized as float64, received %v", v)
+	}
+
+	return nil
+{{ end }}
+
+{{ define "float32_mapper" }}
+	if v == nil {
+		// it is false or null, the zero values
+	} else if f, ok := v.(float64); ok {
+		mf := float32(f)
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &mf
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = mf
+		{{ end }}
+	} else if i, ok := v.(int64); ok {
+		tf := float32(i)
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &tf
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = tf
+		{{ end }}
+	} else if i, ok := v.([]byte); ok {
+		f, err := strconv.ParseFloat(string(i), 32)
+		if err != nil {
+			return err
+		}
+		sf := float32(f)
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &sf
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = sf
+		{{ end }}
+	}	else {
+		return fmt.Errorf("Value not recognized as float32, received %v", v)
+	}
+
+	return nil
+{{ end }}
+
+{{ define "byte_mapper" }}
+	if v == nil {
+		// do nothing, use zero value
+	} else if s, ok := v.([]byte); ok {
+		{{ if .MustNull }}
+			(*m.Mapper.Current).{{ .Name }} = &s
+		{{ else }}
+			(*m.Mapper.Current).{{ .Name }} = s
+		{{ end }}
+	}
+
+	return nil
+{{ end }}
+
+{{ define "column_mappers" }}
+	{{ range $column := .Columns }}
+		{{ if $column.SimpleType }}
+			func (scope *{{ $.Name }}Scope) {{ $column.Name }}(eq ...interface{}) *{{ $.Name }}Scope {
+				scope.currentColumn =
+					scope.tableName() +
+						"." +
+						scope.conn.SQLColumn(scope.scopeName(), "{{ $column.Name }}")
+				scope.currentAlias = ""
+				scope.isDistinct = false
+				if len(eq) > 0 {
+					for _, ev := range eq {
+						scope.Eq(ev)
+					}
+				}
+				return scope
+			}
+	
+			type mapper{{ $.Name }}To{{ $column.Name }} struct {
+				Mapper *mapper{{ $.Name }}
+			}
+	
+			{{ if eq $column.GoType "int" }}
+				func (m mapper{{ $.Name }}To{{ $column.Name }}) Scan(v interface{}) error {
+					{{ template "int_mapper" $column }}
+				}
+			{{ else if eq $column.GoType "string" }}
+				func (m mapper{{ $.Name }}To{{ $column.Name }}) Scan(v interface{}) error {
+					{{ template "string_mapper" $column }}
+				}
+			{{ else if eq $column.GoType "&{time Time}" }}
+				func (m mapper{{ $.Name }}To{{ $column.Name }}) Scan(v interface{}) error {
+					{{ template "time_mapper" $column }}
+				}
+			{{ else if eq $column.GoType "bool" }}
+				func (m mapper{{ $.Name }}To{{ $column.Name }}) Scan(v interface{}) error {
+					{{ template "bool_mapper" $column }}
+				}
+			{{ else if eq $column.GoType "float64" }}
+				func (m mapper{{ $.Name }}To{{ $column.Name }}) Scan(v interface{}) error {
+					{{ template "float64_mapper" $column }}
+				}
+			{{ else if eq $column.GoType "float32" }}
+				func (m mapper{{ $.Name }}To{{ $column.Name }}) Scan(v interface{}) error {
+					{{ template "float32_mapper" $column }}
+				}
+			{{ else if eq $column.GoType "[]byte" }}
+				func (m mapper{{ $.Name }}To{{ $column.Name }}) Scan(v interface{}) error {
+					{{ template "byte_mapper" $column }}
+				}
+			{{ end }}
+		{{ end }}
+		{{ if $column.Subrecord }}
+			/*
+				type scope{{ $.Name }}{{ $column.Subrecord.Name }} struct {
+					scope {{ $.Name }}Scope
+				}
+				type {{ $.Name }}{{ $column.Subrecord.Name }}Scope interface {
+					Include() {{ $.Name }}Scope
+					{{ range $subcolumn := $column.Subcolumns }}
+						{{ $subcolumn.Name }}() {{ $.Name }}Scope
+					{{ end }}
+				}
+	
+				func (scope scope{{ $.Name }}) {{ $column.Subrecord.Name }}() {{ $.Name }}{{ $column.Subrecord.Name }}Scope {
+					return scope{{ $.Name }}{{ $column.Subrecord.Name }}{scope}
+				}
+	
+				func (scope scope{{ $.Name }}{{ $column.Subrecord.Name }}) Include() {{ $.Name }}Scope {
+					scope.scope.includes = append(scope.scope.includes, "{{ $column.Subrecord.Name }}")
+					return scope.scope
+				}
+			
+				{{ range $subcolumn := $column.Subcolumns }}
+	
+					func (scope scope{{ $.Name }}{{ $column.Subrecord.Name }}) {{ $subcolumn.Name }}() {{ $.Name }}Scope {
+						scope.scope.currentColumn = 	
+							scope.scope.conn.SQLTable("{{ $.Name }}") +
+								"." +
+								scope.scope.conn.SQLColumn("{{ $.Name }}", "{{ $subcolumn.Name }}")
+						scope.scope.currentAlias = ""
+						scope.scope.isDistinct = false
+						return scope.scope
+					}
+	
+					type mapper{{ $.Name }}To{{ $subcolumn.Name }} struct {
+						Mapper *mapper{{ $.Name }}
+					}
+	
+					{{ if eq $subcolumn.GoType "int" }}
+						func (m mapper{{ $.Name }}To{{ $subcolumn.Name }}) Scan(v interface{}) error {
+							{{ template "int_mapper" $subcolumn }}
+						}
+					{{ else if eq $subcolumn.GoType "string" }}
+						func (m mapper{{ $.Name }}To{{ $subcolumn.Name }}) Scan(v interface{}) error {
+							{{ template "string_mapper" $subcolumn }}
+						}
+					{{ else if eq $subcolumn.GoType "&{time Time}" }}
+						func (m mapper{{ $.Name }}To{{ $subcolumn.Name }}) Scan(v interface{}) error {
+							{{ template "time_mapper" $subcolumn }}
+						}
+					{{ else if eq $column.GoType "[]byte" }}
+						func (m mapper{{ $.Name }}To{{ $column.Name }}) Scan(v interface{}) error {
+							{{ template "byte_mapper" $column }}
+						}
+					{{ end }}
+				{{ end }}
+			*/
+		{{ end }}
+	{{ end }}
+
+{{ end }}

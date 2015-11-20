@@ -1,0 +1,411 @@
+{{ define "conditions" }}
+  // basic conditions
+  func (scope *{{ .Name }}Scope) Eq(val interface{}) *{{ .Name }}Scope {
+    scope.internalScope.Eq(val)
+    return scope
+  }
+
+  func (scope *{{ .Name }}Scope) Neq(val interface{}) *{{ .Name }}Scope {
+    scope.internalScope.Neq(val)
+    return scope
+  }
+
+  func (scope *{{ .Name }}Scope) Gt(val interface{}) *{{ .Name }}Scope {
+    scope.internalScope.Gt(val)
+    return scope
+  }
+
+  func (scope *{{ .Name }}Scope) Gte(val interface{}) *{{ .Name }}Scope {
+    scope.internalScope.Gte(val)
+    return scope
+  }
+
+  func (scope *{{ .Name }}Scope) Lt(val interface{}) *{{ .Name }}Scope {
+    scope.internalScope.Lt(val)
+    return scope
+  }
+
+  func (scope *{{ .Name }}Scope) Lte(val interface{}) *{{ .Name }}Scope {
+    scope.internalScope.Lte(val)
+    return scope
+  }
+
+
+  // multi value conditions
+  func (scope *{{ .Name }}Scope) Between(lower, upper interface{}) *{{ .Name }}Scope {
+    scope.internalScope.Between(lower, upper)
+    return scope
+  }
+
+  func (scope *{{ .Name }}Scope) In(vals ...interface{}) *{{ .Name }}Scope {
+    scope.internalScope.In(vals...)
+    return scope
+  }
+
+  func (scope *{{ .Name }}Scope) NotIn(vals ...interface{}) *{{ .Name }}Scope {
+    scope.internalScope.NotIn(vals...)
+    return scope
+  }
+
+  func (scope *{{ .Name }}Scope) Like(str string) *{{ .Name }}Scope {
+    scope.internalScope.Like(str)
+    return scope
+  }
+
+  func (scope *{{ .Name }}Scope) Where(sql string, vals ...interface{}) *{{ .Name }}Scope {
+    scope.internalScope.Where(sql, vals...)
+    return scope
+  }
+{{ end }}
+
+{{ define "ordering" }}
+  // ordering conditions
+  func (scope *{{ .Name }}Scope) Order(ordering string) *{{ .Name }}Scope {
+    scope.order = append(scope.order, ordering)
+    return scope
+  }
+
+  func (scope *{{ .Name }}Scope) Desc() *{{ .Name }}Scope {
+    scope.order = append(scope.order, scope.currentColumn+" DESC")
+    return scope
+  }
+
+  func (scope *{{ .Name }}Scope) Asc() *{{ .Name }}Scope {
+    scope.order = append(scope.order, scope.currentColumn+" ASC")
+    return scope
+  }
+{{ end }}
+
+{{ template "joining" . }}
+  // Join funcs
+  func (scope *{{ .Name }}Scope)	OuterJoin(things ...Scope) *{{ .Name }}Scope {
+    scope.internalScope.outerJoin("{{ .Name }}", things...)
+    return scope
+  }
+
+  func (scope *{{ .Name }}Scope)	InnerJoin(things ...Scope) *{{ .Name }}Scope {
+    scope.internalScope.innerJoin("{{ .Name }}", things...)
+    return scope
+  }
+
+  // JoinBy allows you to specify the exact join SQL statment for one or more
+  // tables. You can also pass the Scope objects that you are manually joining, 
+  // which are recorded for future Joining to work off of or to be Include'd.
+  func (scope *{{ .Name }}Scope)	JoinBy(joins string, joinedScopes ...Scope) *{{ .Name }}Scope {
+    scope.joins = append(scope.joins, joins)
+    scope.joinedScopes = append(scope.joinedScopes, joinedScopes...)
+    return scope
+  }
+
+  func (scope *{{ .Name }}Scope) joinable() string {
+    if scope.tableAlias != "" {
+      return fmt.Sprintf(
+        "%s AS %s",
+        scope.conn.SQLTable("{{ .Name }}"),
+        scope.tableAlias,
+      )
+    }
+    return scope.conn.SQLTable("{{ .Name }}")
+  }
+{{ end }}
+
+{{ define "aggregates" . }}
+  // aggregation filtering
+  func (scope *{{ .Name }}Scope) Having(sql string, vals ...interface{}) *{{ .Name }}Scope {
+    scope.having = append(scope.having, sql)
+    scope.haveVals = append(scope.haveVals, vals...)
+    return scope
+  }
+
+  func (scope *{{ .Name }}Scope) GroupBySQL(cols ...string) *{{ .Name }}Scope {
+    scope.groupBy = append(scope.groupBy, cols...)
+    return scope
+  }
+{{ end }}
+
+{{ define "limiting" }}
+  // Result count filtering
+  func (scope *{{ .Name }}Scope) Limit(limit int64) *{{ .Name }}Scope {
+    scope.limit = &limit
+    return scope
+  }
+
+  func (scope *{{ .Name }}Scope) Offset(offset int64) *{{ .Name }}Scope {
+    scope.offset = &offset
+    return scope
+  }
+{{ end }}
+
+{{ define "finders" }}
+  // struct saving and loading
+  func (scope *{{ .Name }}Scope) Find(id interface{}) ({{ .Name }}, error) {
+    return scope.And(scope.Base().Eq(id)).Retrieve()
+  }
+
+  func (scope *{{ .Name }}Scope) Retrieve() ({{ .Name }}, error) {
+    val := &{{ .Name }}{}
+    m := mapperFor{{ .Name }}(scope)
+    m.Current = &val
+    scope.columns = m.Columns
+
+    ss, vv := scope.QuerySQL()
+    row := scope.conn.QueryRow(ss, vv...)
+    err := row.Scan(m.Scanners...)
+    if err != nil {
+      err = fmt.Errorf("SQL: %s\n%s", ss, err.Error())
+    }
+    val.cached_conn = scope.conn
+    return *val, err
+
+  }
+
+  func (scope *{{ .Name }}Scope) RetrieveAll() ([]{{ .Name }}, error) {
+    m := mapperFor{{ .Name }}(scope)
+    scope.columns = m.Columns
+
+    ss, vv := scope.QuerySQL()
+    rows, err := scope.conn.Query(ss, vv...)
+    if err != nil {
+      err = fmt.Errorf("SQL: %s\n%s", ss, err.Error())
+      return []{{ .Name }}{}, err
+    }
+    defer rows.Close()
+
+    vals := []{{ .Name }}{}
+
+    for rows.Next() {
+      temp := &{{ .Name }}{}
+      m.Current = &temp
+      err = rows.Scan(m.Scanners...)
+      if err != nil {
+        return []{{ .Name }}{}, err
+      }
+      temp.cached_conn = scope.conn
+      vals = append(vals, *temp)
+    }
+
+    return vals, nil
+  }
+
+  // subset plucking
+  func (scope *{{ .Name }}Scope) Pick(sql string) *{{ .Name }}Scope {
+    scope.isDistinct = false
+    scope.currentColumn = sql
+
+    return scope
+  }
+
+  func (scope *{{ .Name }}Scope) PluckStruct(result interface{}) error {
+    return scope.internalScope.pluckStruct("{{ .Name }}", result)
+  }
+{{ end }}
+
+{{ define "counting" }}
+  // direct sql
+  func (scope *{{ .Name }}Scope) Count() int64 {
+    return scope.{{ .PrimaryKeyColumn.Name }}().Distinct().CountOf()
+  }
+
+  func (scope *{{ .Name }}Scope) CountBy(sql string) int64 {
+    scope.columns = []string{sql}
+    ss, sv := scope.QuerySQL()
+    var value int64
+    row := scope.conn.QueryRow(ss, sv...)
+    err := row.Scan(&value)
+    if err != nil {
+      panic(err)
+    }
+
+    return value
+  }
+
+  func (scope *{{ .Name }}Scope) CountOf() int64 {
+    if scope.isDistinct {
+      return scope.CountBy(fmt.Sprintf("COUNT(DISTINCT %s)", scope.currentColumn))
+    }
+    return scope.CountBy(fmt.Sprintf("COUNT(%s)", scope.currentColumn))
+  }
+{{ end }}
+
+{{ define "save_update" }}
+  func (scope *{{ .Name }}Scope) SaveAll(vals []{{ .Name }}) error {
+    for i := range vals {
+      err := vals[i].Save(scope.conn)
+      if err != nil {
+        return err
+      }
+    }
+    return nil
+  }
+
+
+  // Scope attribute updating
+  func (scope *{{ .Name }}Scope) Set(val interface{}) *{{ .Name }}Scope {
+    if scope.updates == nil {
+      scope.updates = make(map[string]interface{})
+    }
+    colName := strings.TrimPrefix(scope.currentColumn, scope.conn.SQLTable("{{ $.Name }}")+".")
+    scope.updates[colName] = val
+    return scope
+  }
+
+  func (scope *{{ .Name }}Scope) Update() error {
+    sql, vals := scope.UpdateSQL()
+    _, err := scope.conn.Exec(sql, vals...)
+    return err
+  }
+
+  func (scope *{{ .Name }}Scope) UpdateBySQL(sql string, vals ...interface{}) error {
+    scope.columns = []string{""}
+    ss, sv := scope.query()
+    ss = strings.TrimPrefix(ss, "SELECT FROM "+scope.table)
+    ss = fmt.Sprintf("UPDATE %s SET %s %s", scope.table, sql, ss)
+    _, err := scope.conn.Exec(ss, append(vals, sv...))
+    return err
+  }
+
+  func (scope *{{ .Name }}Scope) Delete() error {
+    sql, cv := scope.DeleteSQL()
+    if sql == "" {
+      if err, ok := cv[0].(error); ok {
+        return err
+      } else {
+        return fmt.Errorf("Unspecified Error in DeleteSQL()")
+      }
+    }
+    _, err := scope.conn.Exec(sql, cv...)
+    if err != nil {
+      return fmt.Errorf("Encountered error: %v\nSQL: %s %v", err, sql, cv)
+    }
+    return nil
+  }
+{{ end }}
+
+{{ define "scope_sql" }}
+  func (scope {{ .Name }}Scope) condSQL() (string, []interface{}) {
+    conds := []string{}
+    vals := []interface{}{}
+    for _, condition := range scope.conditions {
+      conds = append(conds, condition.ToSQL())
+      vals = append(vals, condition.vals...)
+    }
+    return strings.Join(conds, " AND "), vals
+  }
+
+  // special
+  func (scope {{ .Name }}Scope) QuerySQL() (string, []interface{}) {
+    return scope.query()
+  }
+
+  func (scope {{ .Name }}Scope) UpdateSQL() (string, []interface{}) {
+    sql := fmt.Sprintf(
+      "UPDATE %s SET ",
+      scope.conn.SQLTable("{{ $.Name }}"),
+    )
+
+    updates := []string{}
+    vals := []interface{}{}
+    for col, val := range scope.updates {
+      updates = append(updates, col + " = ?")
+      vals = append(vals, val)
+    }
+    sql += strings.Join(updates, ", ")
+
+    if len(scope.conditions) > 0 {
+      cs, cv := scope.conditionSQL()
+      sql += " WHERE " + cs
+      vals = append(vals, cv...)
+    }
+    return sql, vals
+  }
+
+  func (scope {{ .Name }}Scope) DeleteSQL() (string, []interface{}) {
+    delScope := scope.Clone()
+    if len(scope.joins) > 0 || len(scope.having) > 0 {
+      ids, err := scope.{{ .PrimaryKeyColumn.Name }}().Distinct().PluckInt()
+      if err != nil {
+        return "", []interface{}{err}
+      }
+      delScope = delScope.ClearAll().{{ .PrimaryKeyColumn.Name }}().In(ids)
+    }
+    cs, cv := scope.condSQL()
+
+    if cs == "" {
+      sql := fmt.Sprintf("DELETE FROM %s",scope.table)
+      return sql, []interface{}{}
+    } else {
+      sql := fmt.Sprintf("DELETE FROM %s WHERE %s",scope.table, cs)
+      return sql, cv
+    }
+  }
+{{ end }}
+
+{{ define "scope_combine" }}
+  func (scope *{{ .Name }}Scope) And(scopes ...Scope) *{{ .Name }}Scope {
+    for _, is := range scopes {
+      scope.conditions = append(scope.conditions, is.conds()...)
+    }
+    return scope
+  }
+
+  func (scope *{{ .Name }}Scope) Or(scopes ...Scope) *{{ .Name }}Scope {
+    c := condition{}
+    ors := []string{}
+    for _, oscope := range scopes {
+      cond := []string{}
+      conds := oscope.conds()
+      if len(conds) == 1 {
+        c.vals = append(c.vals, conds[0].vals...)
+        ors = append(ors, conds[0].ToSQL())
+      } else {
+        for _, ocond := range conds {
+          c.vals = append(c.vals, ocond.vals...)
+          cond = append(cond, ocond.ToSQL())
+        }
+        ors = append(ors, "("+strings.Join(cond, " AND ")+")")
+      }
+    }
+    c.cond = "(" + strings.Join(ors, " OR ") + ")"
+
+    scope.conditions = append(scope.conditions, c)
+
+    return scope
+  }
+{{ end }}
+
+{{ define "scope_mapper" }}
+  type mapper{{ .Name }} struct {
+    Current  **{{ .Name }}
+    Columns  []string
+    Scanners []interface{}
+  }
+
+  func mapperFor{{ .Name }}(scope  *{{ .Name }}Scope) *mapper{{ .Name }} {
+    m := &mapper{{ .Name }}{}
+    m.Columns = []string{ {{ range $column := .Columns }} {{ if $column.SimpleType }} scope.tableName() + "." + scope.conn.SQLColumn("{{ $.Name }}", "{{ $column.Name }}"), {{ end }} {{ end }} }
+    m.Scanners = []interface{}{
+      {{ range $column := .Columns }}
+        {{ if $column.SimpleType }}
+          mapper{{ $.Name }}To{{ $column.Name }}{m},
+        {{ end }}
+      {{ end }}
+    }
+
+    {{ range $column := .Columns }}
+      {{ if $column.Subrecord }}
+        if drStringArray(scope.includes).Includes("{{ $column.Subrecord.Name }}") {
+          m.Columns = append(m.Columns,
+            {{ range $subcolumn := $column.Subcolumns }}scope.conn.SQLTable("{{ $.Name }}") + "." + scope.conn.SQLColumn("{{ $.Name }}", "{{ $subcolumn.Name }}"),{{ end }}
+          )
+
+          m.Scanners = append(m.Scanners,
+            {{ range $subcolumn := $column.Subcolumns }}mapper{{ $.Name }}To{{ $subcolumn.Name }}{m},{{ end }}
+          )
+        }
+      {{ end }}
+    {{ end }}
+    return m
+  }
+{{ end }}
+
+

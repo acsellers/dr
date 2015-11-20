@@ -1,0 +1,100 @@
+type {{ .Name }}Scope struct {
+	*internalScope
+}
+
+func New{{ .Name }}Scope(c *Conn) *{{ .Name }}Scope {
+  s := &{{ .Name }}Scope{}
+  s.SetConn(c)
+  return s
+}
+
+func (scope *{{ .Name }}Scope) SetConn(conn *Conn) Scope {
+	scope.conn = conn
+	scope.table = c.SQLTable("{{ .Name }}"),
+	scope.currentColumn = c.SQLTable("{{ .Name }}") + "." + c.SQLColumn("{{ .Name }}", "{{ .PrimaryKeyColumn.Name }}"),
+	return scope
+}
+
+func ({{ .Name }}Scope) scopeName() string {
+	return "{{ .Name }}"
+}
+
+func (scope *{{ .Name }}Scope) tableName() string {
+	if scope.tableAlias != "" {
+		return scope.tableAlias
+	}
+	return scope.conn.SQLTable("{{ .Name }}")
+}
+
+func (scope *{{ .Name }}Scope) Clear() *{{ .Name }}Scope {
+	if scope.conn.{{ .Name }} == scope {
+		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
+	}
+
+	goods := []condition{}
+	for _, cond := range scope.conditions {
+		if !strings.HasSuffix(cond.column, "."+scope.currentColumn) {
+			goods = append(goods, cond)
+		}
+	}
+	scope.conditions = goods
+	return scope
+}
+
+func (scope *{{ .Name }}Scope) ClearAll() *{{ .Name }}Scope {
+	if scope.conn.{{ .Name }} == scope {
+		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
+	}
+
+	scope.conditions = []condition{}
+	return scope
+}
+
+func (scope {{ .Name }}Scope) Clone() *{{ .Name }}Scope {
+	return &scope
+}
+
+func (scope *{{ .Name }}Scope) Base() *{{ .Name }}Scope {
+	return New{{ .Name }}Scope(scope.conn)
+}
+
+// As sets a column alias
+func (scope *{{ .Name }}Scope) As(alias string) *{{ .Name }}Scope {
+	if scope.conn.{{ .Name }} == scope {
+		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
+	}
+
+	scope.currentAlias = alias
+	return scope
+}
+
+// Alias sets a table alias
+func (scope *{{ .Name }}Scope) Alias(alias string) *{{ .Name }}Scope {
+	if scope.conn.{{ .Name }} == scope {
+		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
+	}
+
+	scope.tableAlias = alias
+	return scope
+}
+
+func (scope *{{ .Name }}Scope) Distinct() *{{ .Name }}Scope {
+	if scope.conn.{{ .Name }} == scope {
+		scope = &{{.Name}}Scope{scope.internalScope.Clone()}
+	}
+
+	scope.isDistinct = true
+	return scope
+}
+
+{{ template "conditions" . }}
+{{ template "ordering"" . }}
+{{ template "joining" . }}
+{{ template "aggregates" . }}
+{{ template "finders" . }}
+{{ template "counting" . }}
+{{ template "save_update" . }}
+{{ template "scope_sql" . }}
+{{ template "scope_combine" . }}
+{{ template "scope_mapper" . }}
+{{ template "column_mappers" . }}

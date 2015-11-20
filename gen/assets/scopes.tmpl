@@ -1,0 +1,12 @@
+package {{ .Name }}
+
+import (
+	"database/sql"
+	"fmt"
+	"strings"
+	"time"
+)
+
+{{ range  $table := .Tables }}
+  {{ template "scope" $table }}
+{{ end }}

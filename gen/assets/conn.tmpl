@@ -1,0 +1,83 @@
+package {{ .Name }}
+
+import (
+	"database/sql"
+	"fmt"
+	"strings"
+	"time"
+)
+
+type Conn struct {
+	*sql.DB
+	AppConfig
+	reformat bool
+	returning bool
+	Log *log.Logger
+}
+
+func Open(driverName, dataSourceName string) (*Conn, error) {
+	c := &Conn{}
+	if driverName == "postgres" {
+		c.reformat = true
+		c.returning = true
+	}
+	var err error
+	c.DB, err = sql.Open(driverName, dataSourceName)
+	if err != nil {
+		return nil, err
+	}
+	c.AppConfig = NewAppConfig(driverName)
+	return c, nil
+}
+
+func (c *Conn) Clone() *Conn {
+	c2 := &Conn{
+		DB: c.DB,
+		AppConfig: c.AppConfig,
+		reformat: c.reformat,
+		returning: c.returning,
+		Log: c.Log,
+	}
+
+	return c2
+}
+
+func (c *Conn) Exec(query string, args ...interface{}) (sql.Result, error) {
+	if c.Log != nil {
+		c.Log.Printf("%s %v", query, args)
+	}
+	return c.DB.Exec(c.FormatQuery(query), args...)
+}
+
+func (c *Conn) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	if c.Log != nil {
+		c.Log.Printf("%s %v", query, args)
+	}
+	return c.DB.Query(c.FormatQuery(query), args...)
+}
+
+func (c *Conn) QueryRow(query string, args ...interface{}) *sql.Row {
+	if c.Log != nil {
+		c.Log.Printf("%s %v", query, args)
+	}
+	return c.DB.QueryRow(c.FormatQuery(query), args...)
+}
+
+func (c *Conn) FormatQuery(query string) string {
+	if !c.reformat {
+		return query
+	}
+
+	parts := strings.Split(query, "?")
+	var newQuery []string
+	for i, part := range parts[:len(parts)-1] {
+		newQuery = append(newQuery, fmt.Sprintf("%s$%d", part, i+1))
+	}
+	newQuery = append(newQuery, parts[len(parts)-1])
+
+	return strings.Join(newQuery, "")
+}
+
+func (c *Conn) Close() error {
+	return c.DB.Close()
+}
