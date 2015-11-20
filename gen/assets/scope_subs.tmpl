@@ -76,7 +76,7 @@
   }
 {{ end }}
 
-{{ template "joining" . }}
+{{ define "joining" }}
   // Join funcs
   func (scope *{{ .Name }}Scope)	OuterJoin(things ...Scope) *{{ .Name }}Scope {
     scope.internalScope.outerJoin("{{ .Name }}", things...)
@@ -109,7 +109,7 @@
   }
 {{ end }}
 
-{{ define "aggregates" . }}
+{{ define "aggregates" }}
   // aggregation filtering
   func (scope *{{ .Name }}Scope) Having(sql string, vals ...interface{}) *{{ .Name }}Scope {
     scope.having = append(scope.having, sql)

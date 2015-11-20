@@ -8,7 +8,7 @@
 			"program": "test",
 			"stopOnEntry": false,
 			"env": {},
-			"args": ["init"],
+			"args": [],
 			"cwd": "."
 		}
 	]

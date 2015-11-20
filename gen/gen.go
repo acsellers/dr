@@ -25,12 +25,18 @@ func init() {
 		},
 	})
 
-	names, _ := AssetDir("assets")
+	var err error
+	names, _ := AssetDir("gen/assets")
 	for _, name := range names {
-		tmpl, err = tmpl.New("name").Parse()
+		asset, _ := Asset("gen/assets/"+name)
+		tmpl, err = tmpl.New(name).Parse(string(asset))
 		if err != nil {
 			panic(err)
 		}
+	}
+	fmt.Println(len(tmpl.Templates()))
+	for _, tmp := range tmpl.Templates() {
+		fmt.Println(tmp.Name())
 	}
 }
 
@@ -88,7 +94,7 @@ func WriteLibraryFiles(pkg *gp.Package) {
 
 	f, err := os.Create(pkg.Name() + "_lib.go")
 	if err != nil {
-		fmt.Println("Could not write schema file")
+		fmt.Println("Could not write schema file:", err)
 	}
 
 	ib, err := imports.Process(pkg.Name()+"_lib.go", b.Bytes(), nil)

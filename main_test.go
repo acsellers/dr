@@ -8,7 +8,7 @@ import (
 )
 
 func TestInit(t *testing.T) {
-	pkg := gp.Package{}
+	pkg := &gp.Package{}
 	pkg.SetName("blah")
 	gen.WriteLibraryFiles(pkg)
 	gen.WriteStarterFile(pkg)
