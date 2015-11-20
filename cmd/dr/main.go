@@ -7,7 +7,6 @@ import (
 
 	"github.com/acsellers/dr/gen"
 	"github.com/acsellers/dr/gp"
-	"github.com/acsellers/dr/old/parse"
 	"github.com/codegangsta/cli"
 )
 
@@ -32,7 +31,7 @@ func main() {
 			ShortName: "b",
 			Usage:     "Create the access library",
 			Action: func(c *cli.Context) {
-				pkg := parse.Package{Funcs: make(map[string][]parse.Func)}
+				pkg := gp.Package{Funcs: make(map[string][]gp.Func)}
 				names, _ := filepath.Glob("*.gp")
 				files := make([]*os.File, 0, len(names))
 				for _, name := range names {

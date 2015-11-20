@@ -1,0 +1,15 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Run Tests",
+			"type": "go",
+			"request": "launch",
+			"program": "test",
+			"stopOnEntry": false,
+			"env": {},
+			"args": ["init"],
+			"cwd": "."
+		}
+	]
+}
